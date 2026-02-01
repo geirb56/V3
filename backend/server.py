@@ -585,7 +585,7 @@ async def get_stats():
 
 @api_router.post("/coach/analyze", response_model=CoachResponse)
 async def analyze_with_coach(request: CoachRequest):
-    """Get AI analysis from CardioCoach with persistent memory"""
+    """Get AI analysis from CardioCoach with persistent memory and contextual comparison"""
     if not EMERGENT_LLM_KEY:
         raise HTTPException(status_code=500, detail="LLM key not configured")
     
@@ -595,20 +595,26 @@ async def analyze_with_coach(request: CoachRequest):
     # Build context parts
     context_parts = []
     workout = None
+    baseline = None
+    
+    # Get all workouts for baseline calculation
+    all_workouts = await db.workouts.find({}, {"_id": 0}).sort("date", -1).to_list(100)
+    if not all_workouts:
+        all_workouts = get_mock_workouts()
     
     # If specific workout requested, include its data
     if request.workout_id:
         workout = await db.workouts.find_one({"id": request.workout_id}, {"_id": 0})
         if not workout:
-            mock = get_mock_workouts()
-            workout = next((w for w in mock if w["id"] == request.workout_id), None)
+            workout = next((w for w in all_workouts if w["id"] == request.workout_id), None)
+        
         if workout:
             context_parts.append(f"Current workout being analyzed:\n{workout}")
-    
-    # Get recent workouts for training context
-    all_workouts = await db.workouts.find({}, {"_id": 0}).sort("date", -1).to_list(10)
-    if not all_workouts:
-        all_workouts = get_mock_workouts()
+            
+            # Calculate baseline metrics for contextual comparison
+            baseline = calculate_baseline_metrics(all_workouts, workout, days=14)
+            if baseline:
+                context_parts.append(f"BASELINE METRICS (last {baseline['period_days']} days, {baseline['workout_count']} {baseline['workout_type']} sessions):\n{baseline}")
     
     # Include training history summary
     if all_workouts:
@@ -643,9 +649,11 @@ async def analyze_with_coach(request: CoachRequest):
     
     # Build the full message
     if request.deep_analysis and workout:
-        # Deep analysis mode
+        # Deep analysis mode with baseline comparison
         deep_prompt = DEEP_ANALYSIS_PROMPT_FR if language == "fr" else DEEP_ANALYSIS_PROMPT_EN
         full_message = f"{deep_prompt}\n\nWorkout data:\n{workout}"
+        if baseline:
+            full_message += f"\n\nBaseline comparison data:\n{baseline}"
     else:
         full_message = request.message
     
