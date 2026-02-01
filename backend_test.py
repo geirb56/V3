@@ -228,6 +228,91 @@ class CardioCoachAPITester:
         
         return success2, response2
 
+    def test_baseline_comparison_analysis(self, workout_id):
+        """Test deep analysis with baseline comparison features"""
+        success, response = self.run_test(
+            "Baseline Comparison Analysis", 
+            "POST", 
+            "coach/analyze", 
+            200,
+            data={
+                "message": "Analyze this workout with baseline comparison", 
+                "workout_id": workout_id,
+                "language": "en",
+                "deep_analysis": True,
+                "user_id": "baseline_test"
+            }
+        )
+        
+        if success:
+            response_text = response.get('response', '')
+            print(f"   Baseline analysis response length: {len(response_text)} chars")
+            
+            # Check for baseline comparison keywords
+            baseline_keywords = [
+                'baseline', 'recent', 'compared to', 'vs baseline', 
+                'elevated', 'consistent', 'trend', 'improving', 'maintaining'
+            ]
+            found_keywords = [kw for kw in baseline_keywords if kw.lower() in response_text.lower()]
+            print(f"   Found baseline keywords: {found_keywords}")
+            
+            # Check for structured analysis sections
+            analysis_sections = [
+                'EXECUTION ASSESSMENT', 'TREND DETECTION', 
+                'PHYSIOLOGICAL CONTEXT', 'ACTIONABLE INSIGHT'
+            ]
+            found_sections = [sec for sec in analysis_sections if sec in response_text]
+            print(f"   Found analysis sections: {found_sections}")
+            
+            # Check for relative terms (non-alarmist tone)
+            relative_terms = [
+                'slightly', 'moderately', 'consistent with', 'in line with',
+                'modest', 'notable', 'typical'
+            ]
+            found_terms = [term for term in relative_terms if term.lower() in response_text.lower()]
+            print(f"   Found relative terms: {found_terms}")
+            
+            print(f"   Response preview: {response_text[:200]}...")
+        
+        return success, response
+
+    def test_trend_detection_analysis(self, workout_id):
+        """Test trend detection in deep analysis"""
+        success, response = self.run_test(
+            "Trend Detection Analysis", 
+            "POST", 
+            "coach/analyze", 
+            200,
+            data={
+                "message": "What trends do you see in my performance?", 
+                "workout_id": workout_id,
+                "language": "en",
+                "deep_analysis": True,
+                "user_id": "trend_test"
+            }
+        )
+        
+        if success:
+            response_text = response.get('response', '')
+            
+            # Check for trend detection keywords
+            trend_keywords = [
+                'improving', 'maintaining', 'overload', 'risk', 'stable',
+                'progression', 'decline', 'fatigue', 'recovery'
+            ]
+            found_trends = [kw for kw in trend_keywords if kw.lower() in response_text.lower()]
+            print(f"   Found trend keywords: {found_trends}")
+            
+            # Check for calm, non-alarmist tone
+            alarmist_words = ['danger', 'warning', 'urgent', 'critical', 'alarming']
+            found_alarmist = [word for word in alarmist_words if word.lower() in response_text.lower()]
+            if found_alarmist:
+                print(f"   ⚠️  Found potentially alarmist words: {found_alarmist}")
+            else:
+                print(f"   ✅ Tone appears calm and non-alarmist")
+        
+        return success, response
+
 def main():
     print("🏃 CardioCoach API Testing Suite")
     print("=" * 50)
