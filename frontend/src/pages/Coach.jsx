@@ -1,57 +1,111 @@
 import { useState, useRef, useEffect } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send, Loader2 } from "lucide-react";
+import { Send, Loader2, Trash2, Activity } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/context/LanguageContext";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const USER_ID = "default"; // In production, this would be the authenticated user ID
 
 export default function Coach() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [workouts, setWorkouts] = useState([]);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [analyzingWorkout, setAnalyzingWorkout] = useState(null);
   const scrollRef = useRef(null);
   const { t, lang } = useLanguage();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const hasTriggeredAnalysis = useRef(false);
 
+  // Load conversation history on mount
   useEffect(() => {
-    const fetchWorkouts = async () => {
+    const loadHistory = async () => {
       try {
-        const res = await axios.get(`${API}/workouts`);
-        setWorkouts(res.data);
+        const res = await axios.get(`${API}/coach/history?user_id=${USER_ID}&limit=50`);
+        setMessages(res.data.map(msg => ({
+          role: msg.role,
+          content: msg.content,
+          workout_id: msg.workout_id,
+          timestamp: msg.timestamp
+        })));
       } catch (error) {
-        console.error("Failed to fetch workouts:", error);
+        console.error("Failed to load history:", error);
+      } finally {
+        setInitialLoading(false);
       }
     };
-    fetchWorkouts();
+    loadHistory();
   }, []);
 
+  // Check for workout analysis param
+  useEffect(() => {
+    const workoutId = searchParams.get("analyze");
+    if (workoutId && !hasTriggeredAnalysis.current && !initialLoading) {
+      hasTriggeredAnalysis.current = true;
+      triggerWorkoutAnalysis(workoutId);
+      // Clear the param after triggering
+      setSearchParams({});
+    }
+  }, [searchParams, initialLoading]);
+
+  // Scroll to bottom on new messages
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
     }
   }, [messages]);
 
-  const buildContext = () => {
-    if (workouts.length === 0) return "";
-    
-    const recentWorkouts = workouts.slice(0, 5).map(w => ({
-      type: w.type,
-      name: w.name,
-      date: w.date,
-      distance_km: w.distance_km,
-      duration_minutes: w.duration_minutes,
-      avg_heart_rate: w.avg_heart_rate,
-      avg_pace_min_km: w.avg_pace_min_km,
-      avg_speed_kmh: w.avg_speed_kmh,
-      effort_zone_distribution: w.effort_zone_distribution
-    }));
+  const triggerWorkoutAnalysis = async (workoutId) => {
+    setAnalyzingWorkout(workoutId);
+    setLoading(true);
 
-    return `Recent training data (last 5 workouts):\n${JSON.stringify(recentWorkouts, null, 2)}`;
+    // Fetch workout details for display
+    let workoutName = "";
+    try {
+      const workoutRes = await axios.get(`${API}/workouts/${workoutId}`);
+      workoutName = workoutRes.data.name || workoutId;
+    } catch (e) {
+      workoutName = workoutId;
+    }
+
+    const analysisMessage = lang === "fr" 
+      ? `Analyse approfondie de la seance: ${workoutName}`
+      : `Deep analysis of workout: ${workoutName}`;
+
+    setMessages(prev => [...prev, { role: "user", content: analysisMessage, workout_id: workoutId }]);
+
+    try {
+      const response = await axios.post(`${API}/coach/analyze`, {
+        message: analysisMessage,
+        workout_id: workoutId,
+        language: lang,
+        deep_analysis: true,
+        user_id: USER_ID
+      });
+
+      setMessages(prev => [...prev, { 
+        role: "assistant", 
+        content: response.data.response,
+        workout_id: workoutId
+      }]);
+    } catch (error) {
+      console.error("Analysis error:", error);
+      toast.error(t("coach.error"));
+      setMessages(prev => [...prev, { 
+        role: "assistant", 
+        content: t("coach.unavailable")
+      }]);
+    } finally {
+      setLoading(false);
+      setAnalyzingWorkout(null);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -66,8 +120,8 @@ export default function Coach() {
     try {
       const response = await axios.post(`${API}/coach/analyze`, {
         message: userMessage,
-        context: buildContext(),
-        language: lang // Send language preference to backend
+        language: lang,
+        user_id: USER_ID
       });
 
       setMessages(prev => [...prev, { 
@@ -83,6 +137,16 @@ export default function Coach() {
       }]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleClearHistory = async () => {
+    try {
+      await axios.delete(`${API}/coach/history?user_id=${USER_ID}`);
+      setMessages([]);
+      toast.success(lang === "fr" ? "Historique efface" : "History cleared");
+    } catch (error) {
+      toast.error(lang === "fr" ? "Erreur" : "Error");
     }
   };
 
@@ -108,16 +172,44 @@ export default function Coach() {
     setInput(suggestions[key]);
   };
 
+  if (initialLoading) {
+    return (
+      <div className="flex flex-col h-[calc(100vh-60px)] md:h-screen" data-testid="coach-page">
+        <div className="p-6 md:p-8 border-b border-border">
+          <div className="h-8 w-32 bg-muted rounded animate-pulse" />
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-[calc(100vh-60px)] md:h-screen" data-testid="coach-page">
       {/* Header */}
       <div className="p-6 md:p-8 border-b border-border">
-        <h1 className="font-heading text-2xl md:text-3xl uppercase tracking-tight font-bold mb-1">
-          {t("coach.title")}
-        </h1>
-        <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
-          {t("coach.subtitle")}
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="font-heading text-2xl md:text-3xl uppercase tracking-tight font-bold mb-1">
+              {t("coach.title")}
+            </h1>
+            <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+              {t("coach.subtitle")}
+            </p>
+          </div>
+          {messages.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleClearHistory}
+              data-testid="clear-history"
+              className="text-muted-foreground hover:text-destructive"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Messages Area */}
@@ -163,6 +255,14 @@ export default function Coach() {
                     <Card className="bg-muted border-border">
                       <CardContent className="p-4">
                         <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                        {msg.workout_id && (
+                          <div className="mt-2 flex items-center gap-1 text-primary">
+                            <Activity className="w-3 h-3" />
+                            <span className="font-mono text-[10px] uppercase">
+                              {lang === "fr" ? "Seance analysee" : "Workout analyzed"}
+                            </span>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   </div>
@@ -185,8 +285,14 @@ export default function Coach() {
                 <p className="font-mono text-[10px] uppercase tracking-widest text-primary mb-2">
                   CardioCoach
                 </p>
-                <div className="coach-message">
+                <div className="coach-message flex items-center gap-2">
                   <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {analyzingWorkout 
+                      ? (lang === "fr" ? "Analyse en cours..." : "Analyzing...")
+                      : (lang === "fr" ? "Reflexion..." : "Thinking...")
+                    }
+                  </span>
                 </div>
               </div>
             )}
