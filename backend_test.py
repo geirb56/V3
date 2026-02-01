@@ -94,15 +94,31 @@ class CardioCoachAPITester:
         """Test AI coach analysis"""
         test_message = "Analyze my recent training load and effort distribution."
         success, response = self.run_test(
-            "Coach AI Analysis", 
+            "Coach AI Analysis (EN)", 
             "POST", 
             "coach/analyze", 
             200,
-            data={"message": test_message}
+            data={"message": test_message, "language": "en"}
         )
         if success:
             print(f"   AI Response length: {len(response.get('response', ''))} chars")
             print(f"   Message ID: {response.get('message_id', 'N/A')}")
+        return success, response
+
+    def test_coach_analyze_french(self):
+        """Test AI coach analysis in French"""
+        test_message = "Analyse ma charge d'entrainement recente et la distribution de l'effort."
+        success, response = self.run_test(
+            "Coach AI Analysis (FR)", 
+            "POST", 
+            "coach/analyze", 
+            200,
+            data={"message": test_message, "language": "fr"}
+        )
+        if success:
+            print(f"   AI Response length: {len(response.get('response', ''))} chars")
+            print(f"   Message ID: {response.get('message_id', 'N/A')}")
+            print(f"   Response preview: {response.get('response', '')[:100]}...")
         return success, response
 
     def test_create_workout(self):
