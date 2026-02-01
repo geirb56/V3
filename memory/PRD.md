@@ -43,6 +43,21 @@ CardioCoach is an elite endurance coaching app specialized in running, cycling, 
 - Clear history functionality
 - Structured analysis format: Execution Assessment, Physiological Signals, Technical Observations, Actionable Insight
 
+### Phase 4 - Contextual Baseline Comparison (Feb 1, 2026)
+- Baseline metrics calculated from last 14 days of same workout type
+- Comparison metrics: HR vs baseline, distance vs baseline, pace vs baseline
+- Trend detection: Improving / Maintaining / Overload Risk
+- Insights expressed in relative terms:
+  - "slightly elevated compared to your recent baseline"
+  - "consistent with your 7-day average"
+  - "this represents a modest increase in training load"
+- Calm, precise, non-alarmist tone maintained
+- Structured deep analysis with 4 sections:
+  1. EXECUTION ASSESSMENT (with baseline comparison)
+  2. TREND DETECTION (improving/maintaining/overload risk)
+  3. PHYSIOLOGICAL CONTEXT (zone distribution vs recent patterns)
+  4. ACTIONABLE INSIGHT (based on current load vs baseline)
+
 ### Backend
 - API Endpoints:
   - `GET /api/workouts` - List all workouts
