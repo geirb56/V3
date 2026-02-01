@@ -698,11 +698,23 @@ async def analyze_with_coach(request: CoachRequest):
     
     # Build the full message
     if request.deep_analysis and workout:
-        # Deep analysis mode with baseline comparison
-        deep_prompt = DEEP_ANALYSIS_PROMPT_FR if language == "fr" else DEEP_ANALYSIS_PROMPT_EN
+        # Determine if hidden insight should be included (60% probability)
+        include_hidden_insight = random.random() < 0.6
+        
+        if include_hidden_insight:
+            hidden_instruction = HIDDEN_INSIGHT_FR if language == "fr" else HIDDEN_INSIGHT_EN
+        else:
+            hidden_instruction = NO_HIDDEN_INSIGHT
+        
+        # Deep analysis mode with baseline comparison and optional hidden insight
+        base_prompt = DEEP_ANALYSIS_PROMPT_FR if language == "fr" else DEEP_ANALYSIS_PROMPT_EN
+        deep_prompt = base_prompt.format(hidden_insight_instruction=hidden_instruction)
+        
         full_message = f"{deep_prompt}\n\nWorkout data:\n{workout}"
         if baseline:
             full_message += f"\n\nBaseline comparison data:\n{baseline}"
+        
+        logger.info(f"Deep analysis: hidden_insight={'included' if include_hidden_insight else 'skipped'}")
     else:
         full_message = request.message
     
