@@ -221,6 +221,8 @@ Structure your analysis:
 - If maintaining: suggest progression opportunity
 - If improving: acknowledge and suggest next challenge
 
+{hidden_insight_instruction}
+
 Tone: Calm, precise, non-alarmist. Use phrases like:
 - "slightly elevated compared to your recent baseline"
 - "consistent with your 7-day average"
@@ -260,6 +262,8 @@ Structure ton analyse:
 - Si maintien: suggere une opportunite de progression
 - Si progression: reconnais et suggere le prochain defi
 
+{hidden_insight_instruction}
+
 Ton: Calme, precis, non-alarmiste. Utilise des phrases comme:
 - "legerement eleve par rapport a ta baseline recente"
 - "coherent avec ta moyenne sur 7 jours"
@@ -267,6 +271,50 @@ Ton: Calme, precis, non-alarmiste. Utilise des phrases comme:
 - "ton corps repond bien a l'entrainement recent"
 
 Ne dramatise jamais. Observe et conseille simplement."""
+
+HIDDEN_INSIGHT_EN = """
+5. HIDDEN INSIGHT (include this section)
+Add one non-obvious observation at the end. Something a less experienced coach might miss.
+
+Focus areas (pick ONE that applies):
+- Effort distribution anomaly: unusual zone transitions, split behavior patterns
+- Pacing stability: drift patterns, negative/positive split tendencies
+- Efficiency signals: pace-to-HR ratio changes, power economy shifts
+- Fatigue fingerprints: late-session degradation, recovery interval quality
+- Aerobic signature: threshold proximity patterns, sustainable effort markers
+
+Rules:
+- Variable length: sometimes just one sentence, sometimes 2-3 sentences
+- No motivation ("great job", "keep it up")
+- No alarms ("warning", "danger", "concerning")
+- No medical terms
+- State it as a quiet observation, like thinking out loud
+- Use phrases like: "Worth noting...", "Something subtle here...", "An interesting pattern...", "One detail stands out..."
+
+The goal is to sound like a thoughtful coach who notices things others don't."""
+
+HIDDEN_INSIGHT_FR = """
+5. OBSERVATION DISCRETE (inclure cette section)
+Ajoute une observation non-evidente a la fin. Quelque chose qu'un coach moins experimente pourrait manquer.
+
+Axes d'attention (choisis UN qui s'applique):
+- Anomalie de distribution d'effort: transitions de zones inhabituelles, patterns de splits
+- Stabilite d'allure: patterns de derive, tendances splits negatifs/positifs
+- Signaux d'efficacite: changements du ratio allure/FC, evolution de l'economie de puissance
+- Empreintes de fatigue: degradation en fin de seance, qualite des intervalles de recuperation
+- Signature aerobie: patterns de proximite au seuil, marqueurs d'effort soutenable
+
+Regles:
+- Longueur variable: parfois une seule phrase, parfois 2-3 phrases
+- Pas de motivation ("bravo", "continue comme ca")
+- Pas d'alarmes ("attention", "danger", "preoccupant")
+- Pas de termes medicaux
+- Enonce-le comme une observation tranquille, comme une reflexion a voix haute
+- Utilise des phrases comme: "A noter...", "Quelque chose de subtil ici...", "Un pattern interessant...", "Un detail ressort..."
+
+L'objectif est de sonner comme un coach reflechi qui remarque des choses que d'autres ne voient pas."""
+
+NO_HIDDEN_INSIGHT = ""
 
 def get_system_prompt(language: str) -> str:
     """Get the appropriate system prompt based on language"""
