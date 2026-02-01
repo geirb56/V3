@@ -426,12 +426,16 @@ async def get_stats():
 
 @api_router.post("/coach/analyze", response_model=CoachResponse)
 async def analyze_with_coach(request: CoachRequest):
-    """Get AI analysis from CardioCoach"""
+    """Get AI analysis from CardioCoach with persistent memory"""
     if not EMERGENT_LLM_KEY:
         raise HTTPException(status_code=500, detail="LLM key not configured")
     
-    # Build context
+    user_id = request.user_id or "default"
+    language = request.language or "en"
+    
+    # Build context parts
     context_parts = []
+    workout = None
     
     # If specific workout requested, include its data
     if request.workout_id:
@@ -440,23 +444,61 @@ async def analyze_with_coach(request: CoachRequest):
             mock = get_mock_workouts()
             workout = next((w for w in mock if w["id"] == request.workout_id), None)
         if workout:
-            context_parts.append(f"Workout data: {workout}")
+            context_parts.append(f"Current workout being analyzed:\n{workout}")
+    
+    # Get recent workouts for training context
+    all_workouts = await db.workouts.find({}, {"_id": 0}).sort("date", -1).to_list(10)
+    if not all_workouts:
+        all_workouts = get_mock_workouts()
+    
+    # Include training history summary
+    if all_workouts:
+        recent_summary = [{
+            "date": w.get("date"),
+            "type": w.get("type"),
+            "distance_km": w.get("distance_km"),
+            "duration_minutes": w.get("duration_minutes"),
+            "avg_heart_rate": w.get("avg_heart_rate")
+        } for w in all_workouts[:5]]
+        context_parts.append(f"Recent training history (last 5 sessions):\n{recent_summary}")
     
     # Include additional context if provided
     if request.context:
         context_parts.append(request.context)
     
+    # Fetch conversation memory (last 10 exchanges)
+    conversation_history = await db.conversations.find(
+        {"user_id": user_id},
+        {"_id": 0}
+    ).sort("timestamp", -1).to_list(20)
+    conversation_history.reverse()  # Chronological order
+    
+    # Build memory context for the LLM
+    memory_context = ""
+    if conversation_history:
+        memory_entries = []
+        for msg in conversation_history[-10:]:  # Last 10 messages
+            role = "Athlete" if msg.get("role") == "user" else "Coach"
+            memory_entries.append(f"{role}: {msg.get('content', '')[:200]}")
+        memory_context = "\n\nConversation memory (use naturally, don't reference explicitly):\n" + "\n".join(memory_entries)
+    
     # Build the full message
-    full_message = request.message
+    if request.deep_analysis and workout:
+        # Deep analysis mode
+        deep_prompt = DEEP_ANALYSIS_PROMPT_FR if language == "fr" else DEEP_ANALYSIS_PROMPT_EN
+        full_message = f"{deep_prompt}\n\nWorkout data:\n{workout}"
+    else:
+        full_message = request.message
+    
     if context_parts:
-        full_message = f"{request.message}\n\nContext:\n" + "\n".join(context_parts)
+        full_message = f"{full_message}\n\nContext:\n" + "\n".join(context_parts)
+    
+    if memory_context:
+        full_message = f"{full_message}{memory_context}"
     
     try:
-        # Create session ID for this conversation
-        session_id = str(uuid.uuid4())
-        
-        # Get the appropriate system prompt based on language
-        system_prompt = get_system_prompt(request.language or "en")
+        session_id = f"coach_{user_id}"
+        system_prompt = get_system_prompt(language)
         
         chat = LlmChat(
             api_key=EMERGENT_LLM_KEY,
@@ -467,28 +509,56 @@ async def analyze_with_coach(request: CoachRequest):
         user_message = UserMessage(text=full_message)
         response = await chat.send_message(user_message)
         
-        # Store message in DB
-        message_id = str(uuid.uuid4())
-        await db.messages.insert_one({
-            "id": message_id,
-            "user_message": request.message,
-            "assistant_response": response,
+        # Store user message in conversation memory
+        user_msg_id = str(uuid.uuid4())
+        await db.conversations.insert_one({
+            "id": user_msg_id,
+            "user_id": user_id,
+            "role": "user",
+            "content": request.message,
             "workout_id": request.workout_id,
-            "language": request.language or "en",
             "timestamp": datetime.now(timezone.utc).isoformat()
         })
         
-        return CoachResponse(response=response, message_id=message_id)
+        # Store assistant response in conversation memory
+        assistant_msg_id = str(uuid.uuid4())
+        await db.conversations.insert_one({
+            "id": assistant_msg_id,
+            "user_id": user_id,
+            "role": "assistant",
+            "content": response,
+            "workout_id": request.workout_id,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        })
+        
+        return CoachResponse(response=response, message_id=assistant_msg_id)
     
     except Exception as e:
         logger.error(f"Coach analysis error: {e}")
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
 
 
+@api_router.get("/coach/history")
+async def get_conversation_history(user_id: str = "default", limit: int = 50):
+    """Get conversation history for a user"""
+    messages = await db.conversations.find(
+        {"user_id": user_id},
+        {"_id": 0}
+    ).sort("timestamp", 1).to_list(limit)
+    return messages
+
+
+@api_router.delete("/coach/history")
+async def clear_conversation_history(user_id: str = "default"):
+    """Clear conversation history for a user"""
+    result = await db.conversations.delete_many({"user_id": user_id})
+    return {"deleted_count": result.deleted_count}
+
+
 @api_router.get("/messages")
 async def get_messages(limit: int = 20):
-    """Get recent coach messages"""
-    messages = await db.messages.find({}, {"_id": 0}).sort("timestamp", -1).to_list(limit)
+    """Get recent coach messages (legacy endpoint)"""
+    messages = await db.conversations.find({}, {"_id": 0}).sort("timestamp", -1).to_list(limit)
     return messages
 
 
