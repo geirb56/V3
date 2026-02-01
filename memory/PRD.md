@@ -58,6 +58,20 @@ CardioCoach is an elite endurance coaching app specialized in running, cycling, 
   3. PHYSIOLOGICAL CONTEXT (zone distribution vs recent patterns)
   4. ACTIONABLE INSIGHT (based on current load vs baseline)
 
+### Phase 5 - Hidden Insight Feature (Feb 1, 2026)
+- Probabilistic "Hidden Insight" section (~60% chance of appearing)
+- Focuses on non-obvious patterns:
+  - Effort distribution anomalies
+  - Pacing stability (drift patterns, splits)
+  - Efficiency signals (pace-to-HR ratio)
+  - Fatigue fingerprints (late-session degradation)
+  - Aerobic signature patterns
+- Variable length: sometimes one sentence, sometimes 2-3
+- Uses curious phrasing: "Worth noting...", "Something subtle here...", "An interesting pattern..."
+- Rules enforced: no motivation, no alarms, no medical terms
+- Backend logs hidden insight inclusion status
+- Goal: perceived coach intelligence without overuse
+
 ### Backend
 - API Endpoints:
   - `GET /api/workouts` - List all workouts
