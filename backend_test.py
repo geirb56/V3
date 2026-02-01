@@ -261,6 +261,27 @@ def main():
     # Test messages
     tester.test_get_messages()
     
+    # Test new coach memory features
+    print("\n🧠 Testing Coach Memory Features...")
+    
+    # Test conversation history
+    tester.test_coach_history()
+    
+    # Test deep analysis with workout
+    if workouts_success and workouts_data and len(workouts_data) > 0:
+        first_workout_id = workouts_data[0].get('id')
+        if first_workout_id:
+            print(f"\n⚠️  Testing Deep Analysis for workout {first_workout_id} (may take 10-30 seconds)...")
+            tester.test_deep_analysis(first_workout_id)
+    
+    # Test memory persistence
+    print("\n⚠️  Testing Coach Memory Persistence (may take 20-40 seconds)...")
+    tester.test_coach_memory_persistence()
+    
+    # Test clear history (do this last)
+    print("\n🗑️  Testing Clear History...")
+    tester.test_clear_coach_history()
+    
     # Print summary
     print("\n" + "=" * 50)
     print(f"📊 Test Results: {tester.tests_passed}/{tester.tests_run} passed")
