@@ -275,6 +275,113 @@ def get_system_prompt(language: str) -> str:
     return CARDIOCOACH_SYSTEM_EN
 
 
+def calculate_baseline_metrics(workouts: List[dict], current_workout: dict, days: int = 14) -> dict:
+    """Calculate baseline metrics from recent workouts for contextual comparison"""
+    from datetime import datetime, timedelta
+    
+    current_date = datetime.fromisoformat(current_workout.get("date", "").replace("Z", "+00:00").split("T")[0])
+    cutoff_date = current_date - timedelta(days=days)
+    current_type = current_workout.get("type")
+    
+    # Filter workouts: same type, within date range, excluding current
+    baseline_workouts = [
+        w for w in workouts
+        if w.get("type") == current_type
+        and w.get("id") != current_workout.get("id")
+        and w.get("date")
+    ]
+    
+    # Filter by date
+    filtered = []
+    for w in baseline_workouts:
+        try:
+            w_date = datetime.fromisoformat(w["date"].replace("Z", "+00:00").split("T")[0])
+            if cutoff_date <= w_date < current_date:
+                filtered.append(w)
+        except (ValueError, TypeError):
+            continue
+    
+    if not filtered:
+        return None
+    
+    # Calculate averages
+    def safe_avg(values):
+        valid = [v for v in values if v is not None]
+        return round(sum(valid) / len(valid), 2) if valid else None
+    
+    baseline = {
+        "period_days": days,
+        "workout_count": len(filtered),
+        "workout_type": current_type,
+        "avg_distance_km": safe_avg([w.get("distance_km") for w in filtered]),
+        "avg_duration_minutes": safe_avg([w.get("duration_minutes") for w in filtered]),
+        "avg_heart_rate": safe_avg([w.get("avg_heart_rate") for w in filtered]),
+        "avg_max_heart_rate": safe_avg([w.get("max_heart_rate") for w in filtered]),
+    }
+    
+    # Type-specific metrics
+    if current_type == "run":
+        baseline["avg_pace_min_km"] = safe_avg([w.get("avg_pace_min_km") for w in filtered])
+    elif current_type == "cycle":
+        baseline["avg_speed_kmh"] = safe_avg([w.get("avg_speed_kmh") for w in filtered])
+    
+    # Calculate zone distribution averages
+    zone_totals = {"z1": [], "z2": [], "z3": [], "z4": [], "z5": []}
+    for w in filtered:
+        zones = w.get("effort_zone_distribution", {})
+        for z in zone_totals:
+            if z in zones:
+                zone_totals[z].append(zones[z])
+    
+    baseline["avg_zone_distribution"] = {
+        z: safe_avg(vals) for z, vals in zone_totals.items() if vals
+    }
+    
+    # Calculate load metrics
+    total_volume = sum(w.get("distance_km", 0) for w in filtered)
+    total_time = sum(w.get("duration_minutes", 0) for w in filtered)
+    baseline["total_volume_km"] = round(total_volume, 1)
+    baseline["total_time_minutes"] = total_time
+    baseline["weekly_avg_distance"] = round(total_volume / (days / 7), 1) if days > 0 else 0
+    
+    # Compare current workout to baseline
+    current_hr = current_workout.get("avg_heart_rate")
+    current_dist = current_workout.get("distance_km")
+    current_dur = current_workout.get("duration_minutes")
+    
+    comparison = {}
+    if baseline["avg_heart_rate"] and current_hr:
+        hr_diff = current_hr - baseline["avg_heart_rate"]
+        hr_pct = (hr_diff / baseline["avg_heart_rate"]) * 100
+        comparison["heart_rate_vs_baseline"] = {
+            "difference_bpm": round(hr_diff, 1),
+            "percentage": round(hr_pct, 1),
+            "status": "elevated" if hr_pct > 5 else "reduced" if hr_pct < -5 else "normal"
+        }
+    
+    if baseline["avg_distance_km"] and current_dist:
+        dist_diff = current_dist - baseline["avg_distance_km"]
+        dist_pct = (dist_diff / baseline["avg_distance_km"]) * 100
+        comparison["distance_vs_baseline"] = {
+            "difference_km": round(dist_diff, 1),
+            "percentage": round(dist_pct, 1),
+            "status": "longer" if dist_pct > 15 else "shorter" if dist_pct < -15 else "typical"
+        }
+    
+    if current_type == "run" and baseline.get("avg_pace_min_km"):
+        current_pace = current_workout.get("avg_pace_min_km")
+        if current_pace:
+            pace_diff = current_pace - baseline["avg_pace_min_km"]
+            comparison["pace_vs_baseline"] = {
+                "difference_min_km": round(pace_diff, 2),
+                "status": "slower" if pace_diff > 0.15 else "faster" if pace_diff < -0.15 else "consistent"
+            }
+    
+    baseline["comparison"] = comparison
+    
+    return baseline
+
+
 # ========== MOCK DATA FOR DEMO ==========
 
 def get_mock_workouts():
