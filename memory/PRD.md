@@ -7,36 +7,45 @@ CardioCoach is an elite endurance coaching app specialized in running, cycling, 
 - Serious endurance athletes (runners, cyclists)
 - Data-driven athletes seeking performance analysis
 - Users who prefer minimal, no-nonsense interfaces
+- English and French speaking athletes
 
 ## Core Requirements (Static)
 - NOT a medical application - performance coaching only
 - Analyze training data: heart rate, pace, speed, duration, effort distribution
 - Tone: Calm, neutral, precise - no hype, no motivation, no emojis
 - Dark theme, minimal UI, no gamification, no social features
+- Full bilingual support (English/French)
 
-## What's Been Implemented (Feb 1, 2026)
+## What's Been Implemented
+
+### Phase 1 - MVP (Feb 1, 2026)
+- FastAPI backend with MongoDB integration
+- Mock workout data (demo)
+- Dashboard, Coach, Workout Detail, Progress pages
+- AI Coach with GPT-5.2 via Emergent LLM key
+- Obsidian Tactical dark theme
+
+### Phase 2 - Bilingual Support (Feb 1, 2026)
+- i18n system with explicit EN/FR dictionaries
+- Language toggle in Settings page (EN/FR)
+- All UI labels, buttons, screens translated
+- AI Coach responds in selected language
+- Language preference persisted in localStorage
+- No screen duplication - single logic layer
 
 ### Backend
-- FastAPI backend with MongoDB integration
-- Mock workout data (7 sample workouts for demo)
 - API Endpoints:
   - `GET /api/workouts` - List all workouts
   - `GET /api/workouts/{id}` - Workout detail
   - `POST /api/workouts` - Create workout
   - `GET /api/stats` - Training statistics
-  - `POST /api/coach/analyze` - AI analysis
+  - `POST /api/coach/analyze` - AI analysis (with language param)
   - `GET /api/messages` - Coach message history
 
-### Frontend
-- Dashboard: Training overview, stats cards, recent workouts list
-- Coach: AI chat interface with suggestion prompts
-- Workout Detail: Full metrics, effort zone distribution
-- Progress: Charts, trends, all workouts list
-- Obsidian Tactical dark theme
-- Responsive design (desktop sidebar + mobile bottom nav)
-
-### Integrations
-- OpenAI GPT-5.2 via Emergent LLM key for AI coaching
+### Frontend Structure
+- `/app/frontend/src/lib/i18n.js` - Translation dictionaries
+- `/app/frontend/src/context/LanguageContext.jsx` - Language state management
+- `/app/frontend/src/pages/Settings.jsx` - Language toggle UI
 
 ## Prioritized Backlog
 
@@ -56,12 +65,13 @@ CardioCoach is an elite endurance coaching app specialized in running, cycling, 
 ### P3 - Nice to Have
 - Strava integration
 - Apple Health/Google Fit sync
-- Dark mode variations
+- Additional languages (German, Spanish)
 
 ## Tech Stack
 - Backend: FastAPI, MongoDB, emergentintegrations
 - Frontend: React, Tailwind CSS, Recharts, Shadcn/UI
 - AI: OpenAI GPT-5.2 via Emergent LLM key
+- i18n: Custom React Context with explicit dictionaries
 
 ## Design System
 - Theme: Obsidian Tactical
