@@ -173,6 +173,10 @@ def main():
     print("\n⚠️  Testing AI Coach (may take 10-30 seconds)...")
     tester.test_coach_analyze()
     
+    # Test French coach analysis
+    print("\n⚠️  Testing AI Coach in French (may take 10-30 seconds)...")
+    tester.test_coach_analyze_french()
+    
     # Test workout creation
     tester.test_create_workout()
     
