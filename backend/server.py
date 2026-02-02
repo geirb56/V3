@@ -85,6 +85,8 @@ class WorkoutCreate(BaseModel):
     calories: Optional[int] = None
     effort_zone_distribution: Optional[dict] = None
     notes: Optional[str] = None
+    data_source: Optional[str] = "manual"
+    garmin_activity_id: Optional[str] = None
 
 
 class Message(BaseModel):
