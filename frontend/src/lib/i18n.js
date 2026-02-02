@@ -85,6 +85,19 @@ export const translations = {
       allWorkouts: "All Workouts",
     },
     
+    // Guidance
+    guidance: {
+      title: "Guidance",
+      subtitle: "Adaptive Training",
+      suggestedSessions: "Suggested Sessions",
+      disclaimer: "Guidance only. Not a fixed plan.",
+      status: {
+        maintain: "Maintain",
+        adjust: "Adjust",
+        hold_steady: "Hold Steady",
+      },
+    },
+    
     // Settings
     settings: {
       title: "Settings",
