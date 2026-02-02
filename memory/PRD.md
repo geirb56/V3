@@ -120,6 +120,11 @@ CardioCoach is an elite endurance coaching app specialized in running, cycling, 
   - `DELETE /api/coach/history` - Clear conversation history
   - `POST /api/coach/guidance` - Generate adaptive training guidance
   - `GET /api/coach/guidance/latest` - Get most recent guidance
+  - `GET /api/garmin/status` - Garmin connection status
+  - `GET /api/garmin/authorize` - Initiate Garmin OAuth
+  - `GET /api/garmin/callback` - Handle OAuth callback
+  - `POST /api/garmin/sync` - Sync activities from Garmin
+  - `DELETE /api/garmin/disconnect` - Disconnect Garmin account
   - `GET /api/messages` - Coach message history (legacy)
 
 ### Frontend Structure
