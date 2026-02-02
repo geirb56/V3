@@ -91,6 +91,24 @@ CardioCoach is an elite endurance coaching app specialized in running, cycling, 
 - Full EN/FR support
 - Disclaimer: "Guidance only. Not a fixed plan."
 
+### Phase 7 - Garmin Connect Integration (Feb 2, 2026)
+- Full OAuth 2.0 PKCE flow for Garmin Connect
+- Import running and cycling activities only
+- Data mapping with graceful fallback for missing metrics:
+  - activity_id, activity_type, start_time, duration, distance
+  - average_heart_rate, average_pace, heart_rate_zones
+  - calories, elevation_gain (optional)
+  - data_source = "garmin"
+- No UI distinction between imported and demo workouts
+- Settings page shows Data Sync section:
+  - Connection status
+  - Last sync timestamp
+  - Workout count
+  - Connect/Sync/Disconnect buttons
+- Coach NEVER mentions Garmin in responses
+- Full EN/FR translation support
+- **Note**: Requires GARMIN_CLIENT_ID and GARMIN_CLIENT_SECRET credentials from Garmin Developer Program
+
 ### Backend
 - API Endpoints:
   - `GET /api/workouts` - List all workouts
