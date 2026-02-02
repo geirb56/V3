@@ -137,6 +137,181 @@ class TrainingStats(BaseModel):
     weekly_summary: List[dict]
 
 
+# ========== GARMIN INTEGRATION MODELS ==========
+
+class GarminConnectionStatus(BaseModel):
+    connected: bool
+    last_sync: Optional[str] = None
+    workout_count: int = 0
+
+
+class GarminSyncResult(BaseModel):
+    success: bool
+    synced_count: int
+    message: str
+
+
+# Temporary storage for PKCE pairs (in production, use Redis or DB)
+pkce_store: Dict[str, str] = {}
+
+
+# ========== GARMIN OAUTH HELPERS ==========
+
+def generate_pkce_pair() -> tuple:
+    """Generate PKCE code verifier and code challenge"""
+    code_verifier = base64.urlsafe_b64encode(secrets.token_bytes(32)).decode('utf-8').rstrip('=')
+    code_challenge = base64.urlsafe_b64encode(
+        hashlib.sha256(code_verifier.encode('utf-8')).digest()
+    ).decode('utf-8').rstrip('=')
+    return code_verifier, code_challenge
+
+
+def get_garmin_auth_url(code_challenge: str, state: str) -> str:
+    """Generate Garmin Connect authorization URL"""
+    params = {
+        "client_id": GARMIN_CLIENT_ID,
+        "response_type": "code",
+        "code_challenge": code_challenge,
+        "code_challenge_method": "S256",
+        "redirect_uri": GARMIN_REDIRECT_URI,
+        "state": state,
+        "scope": "activity_export"
+    }
+    query = "&".join(f"{k}={v}" for k, v in params.items())
+    return f"https://connect.garmin.com/oauthConfirm?{query}"
+
+
+async def exchange_garmin_code(code: str, code_verifier: str) -> dict:
+    """Exchange authorization code for access token"""
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            "https://connectapi.garmin.com/oauth-service/oauth/token",
+            data={
+                "grant_type": "authorization_code",
+                "client_id": GARMIN_CLIENT_ID,
+                "client_secret": GARMIN_CLIENT_SECRET,
+                "code": code,
+                "code_verifier": code_verifier,
+                "redirect_uri": GARMIN_REDIRECT_URI
+            },
+            headers={"Content-Type": "application/x-www-form-urlencoded"}
+        )
+        response.raise_for_status()
+        return response.json()
+
+
+async def fetch_garmin_activities(access_token: str, start_date: str = None) -> list:
+    """Fetch activities from Garmin Connect API"""
+    async with httpx.AsyncClient() as client:
+        params = {"limit": 100}
+        if start_date:
+            params["start"] = start_date
+        
+        response = await client.get(
+            "https://apis.garmin.com/wellness-api/rest/activities",
+            headers={"Authorization": f"Bearer {access_token}"},
+            params=params
+        )
+        response.raise_for_status()
+        return response.json()
+
+
+def convert_garmin_to_workout(garmin_activity: dict, user_id: str = "default") -> dict:
+    """Convert Garmin activity to CardioCoach workout format"""
+    # Map Garmin activity types to our types
+    activity_type_map = {
+        "running": "run",
+        "cycling": "cycle",
+        "indoor_cycling": "cycle",
+        "trail_running": "run",
+        "treadmill_running": "run",
+        "virtual_ride": "cycle",
+        "road_biking": "cycle",
+        "mountain_biking": "cycle",
+    }
+    
+    garmin_type = garmin_activity.get("activityType", "").lower()
+    workout_type = activity_type_map.get(garmin_type, None)
+    
+    # Only import running and cycling
+    if not workout_type:
+        return None
+    
+    # Extract metrics with graceful fallback for missing data
+    duration_seconds = garmin_activity.get("duration", 0)
+    distance_meters = garmin_activity.get("distance", 0)
+    avg_hr = garmin_activity.get("averageHR")
+    max_hr = garmin_activity.get("maxHR")
+    calories = garmin_activity.get("calories")
+    elevation = garmin_activity.get("elevationGain")
+    
+    # Calculate pace/speed
+    avg_pace = None
+    avg_speed = None
+    if distance_meters and duration_seconds:
+        if workout_type == "run":
+            # Pace in min/km
+            avg_pace = (duration_seconds / 60) / (distance_meters / 1000) if distance_meters > 0 else None
+        else:
+            # Speed in km/h
+            avg_speed = (distance_meters / 1000) / (duration_seconds / 3600) if duration_seconds > 0 else None
+    
+    # Extract heart rate zones if available
+    hr_zones = garmin_activity.get("heartRateZones")
+    effort_distribution = None
+    if hr_zones and isinstance(hr_zones, list) and len(hr_zones) >= 5:
+        total_time = sum(z.get("secsInZone", 0) for z in hr_zones[:5])
+        if total_time > 0:
+            effort_distribution = {
+                f"z{i+1}": round((hr_zones[i].get("secsInZone", 0) / total_time) * 100)
+                for i in range(5)
+            }
+    
+    # Build workout object
+    start_time = garmin_activity.get("startTimeLocal") or garmin_activity.get("startTimeGMT")
+    if start_time:
+        try:
+            if isinstance(start_time, (int, float)):
+                date_obj = datetime.fromtimestamp(start_time / 1000, tz=timezone.utc)
+            else:
+                date_obj = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
+            date_str = date_obj.strftime("%Y-%m-%d")
+        except:
+            date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    else:
+        date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    
+    workout = {
+        "id": f"garmin_{garmin_activity.get('activityId', uuid.uuid4())}",
+        "type": workout_type,
+        "name": garmin_activity.get("activityName", f"{workout_type.title()} Workout"),
+        "date": date_str,
+        "duration_minutes": round(duration_seconds / 60) if duration_seconds else 0,
+        "distance_km": round(distance_meters / 1000, 2) if distance_meters else 0,
+        "data_source": "garmin",
+        "garmin_activity_id": str(garmin_activity.get("activityId")),
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    # Add optional fields only if present (graceful handling)
+    if avg_hr:
+        workout["avg_heart_rate"] = int(avg_hr)
+    if max_hr:
+        workout["max_heart_rate"] = int(max_hr)
+    if avg_pace:
+        workout["avg_pace_min_km"] = round(avg_pace, 2)
+    if avg_speed:
+        workout["avg_speed_kmh"] = round(avg_speed, 1)
+    if calories:
+        workout["calories"] = int(calories)
+    if elevation:
+        workout["elevation_gain_m"] = int(elevation)
+    if effort_distribution:
+        workout["effort_zone_distribution"] = effort_distribution
+    
+    return workout
+
+
 # ========== CARDIOCOACH SYSTEM PROMPTS ==========
 
 CARDIOCOACH_SYSTEM_EN = """You are CardioCoach.
