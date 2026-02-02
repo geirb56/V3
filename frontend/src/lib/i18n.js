@@ -215,6 +215,19 @@ export const translations = {
       allWorkouts: "Toutes les seances",
     },
     
+    // Guidance
+    guidance: {
+      title: "Recommandations",
+      subtitle: "Entrainement Adaptatif",
+      suggestedSessions: "Seances Suggerees",
+      disclaimer: "Recommandations uniquement. Pas un plan fixe.",
+      status: {
+        maintain: "Maintenir",
+        adjust: "Ajuster",
+        hold_steady: "Consolider",
+      },
+    },
+    
     // Settings
     settings: {
       title: "Parametres",
