@@ -637,8 +637,8 @@ def main():
         return all_passed, {"status_detection": "tested"}
 
 def main():
-    print("🏃 CardioCoach API Testing with Hidden Insight Feature")
-    print("=" * 60)
+    print("🏃 CardioCoach API Testing with Hidden Insight & Guidance Features")
+    print("=" * 70)
     
     tester = CardioCoachAPITester()
     
@@ -700,6 +700,25 @@ def main():
             # Test French hidden insight
             print(f"\n🇫🇷 Testing French Hidden Insight (may take 10-30 seconds)...")
             tester.test_hidden_insight_french(first_workout_id)
+    
+    # NEW: Test Adaptive Guidance Features
+    print("\n🎯 Testing Adaptive Guidance Features...")
+    
+    # Test guidance generation in English
+    print("\n⚠️  Testing Guidance Generation (EN) (may take 30-45 seconds)...")
+    tester.test_generate_guidance_english()
+    
+    # Test guidance generation in French
+    print("\n⚠️  Testing Guidance Generation (FR) (may take 30-45 seconds)...")
+    tester.test_generate_guidance_french()
+    
+    # Test getting latest guidance
+    print("\n📋 Testing Latest Guidance Retrieval...")
+    tester.test_get_latest_guidance()
+    
+    # Test status detection
+    print("\n🔍 Testing Status Detection...")
+    tester.test_guidance_status_detection()
     
     # Test memory persistence
     print("\n⚠️  Testing Coach Memory Persistence (may take 20-40 seconds)...")
