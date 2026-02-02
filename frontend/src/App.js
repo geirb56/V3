@@ -6,6 +6,7 @@ import Dashboard from "@/pages/Dashboard";
 import Coach from "@/pages/Coach";
 import WorkoutDetail from "@/pages/WorkoutDetail";
 import Progress from "@/pages/Progress";
+import Guidance from "@/pages/Guidance";
 import Settings from "@/pages/Settings";
 import Layout from "@/components/Layout";
 
@@ -21,6 +22,7 @@ function App() {
               <Route path="coach" element={<Coach />} />
               <Route path="workout/:id" element={<WorkoutDetail />} />
               <Route path="progress" element={<Progress />} />
+              <Route path="guidance" element={<Guidance />} />
               <Route path="settings" element={<Settings />} />
             </Route>
           </Routes>
