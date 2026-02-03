@@ -86,6 +86,46 @@ CardioCoach is an elite endurance coaching app specialized in running, cycling, 
 - ZoneBar and SignalCard components
 - Full EN/FR translations
 
+### Phase 10 - Mobile-First Workout Analysis (Feb 3, 2026) ✅
+**Redesigned workout detail screen for phone readability (<10 seconds)**
+
+**Structure (Top → Bottom):**
+1. **Coach Summary** (top card)
+   - 1 short sentence, max 20 words
+   - Plain language comparing session to recent baseline
+   - Example: "Longer and a bit harder than your recent runs."
+
+2. **Signal Cards** (3 compact cards)
+   - **Intensity**: Pace + Avg HR + Label (Above/Below usual)
+   - **Load**: Distance + Duration + vs Baseline (% ↑↓)
+   - **Comparison**: Pace delta + HR delta vs baseline
+
+3. **Coach Insight** (optional)
+   - Max 2 short sentences
+   - No jargon, calm factual tone
+   - Example: "You ran 2.8 km farther than your recent average."
+
+4. **Guidance** (optional)
+   - ONE short suggestion if relevant
+   - Soft language, no orders
+   - Example: "An easy run next would help you recover."
+
+5. **Actions** (bottom)
+   - Primary: "View full analysis" → Coach chat
+   - Secondary: "Ask the coach" → Coach chat
+
+**Backend:**
+- `GET /api/coach/workout-analysis/{workout_id}` - Mobile analysis
+- Calculates signals from workout + 14-day baseline
+- AI generates coach_summary, insight, guidance
+
+**Design Rules:**
+- One idea per block
+- Max 2 lines per text block
+- White space > density
+- No stars, no heavy markdown
+- Mobile-first (iPhone 13 size optimized)
+
 ### Backend API Endpoints
 - `GET /api/workouts` - List all workouts
 - `GET /api/workouts/{id}` - Workout detail
