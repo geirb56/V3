@@ -356,16 +356,30 @@ async def refresh_strava_token(refresh_token: str) -> dict:
         return response.json()
 
 
-async def fetch_strava_activities(access_token: str, per_page: int = 100) -> list:
-    """Fetch activities from Strava API"""
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            "https://www.strava.com/api/v3/athlete/activities",
-            headers={"Authorization": f"Bearer {access_token}"},
-            params={"per_page": per_page, "page": 1}
-        )
-        response.raise_for_status()
-        return response.json()
+async def fetch_strava_activities(access_token: str, per_page: int = 100, max_pages: int = 3) -> list:
+    """Fetch activities from Strava API (up to max_pages * per_page activities)"""
+    all_activities = []
+    
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        for page in range(1, max_pages + 1):
+            response = await client.get(
+                "https://www.strava.com/api/v3/athlete/activities",
+                headers={"Authorization": f"Bearer {access_token}"},
+                params={"per_page": per_page, "page": page}
+            )
+            response.raise_for_status()
+            activities = response.json()
+            
+            if not activities:
+                break  # No more activities
+            
+            all_activities.extend(activities)
+            
+            if len(activities) < per_page:
+                break  # Last page
+    
+    logger.info(f"Fetched {len(all_activities)} activities from Strava")
+    return all_activities
 
 
 def convert_strava_to_workout(strava_activity: dict) -> dict:
