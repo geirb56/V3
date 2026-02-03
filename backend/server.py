@@ -2066,7 +2066,7 @@ async def get_mobile_workout_analysis(workout_id: str, language: str = "en", use
         coach_summary=coach_summary,
         intensity=signals["intensity"],
         load=signals["load"],
-        comparison=signals["comparison"],
+        session_type=signals["session_type"],
         insight=insight,
         guidance=guidance
     )
