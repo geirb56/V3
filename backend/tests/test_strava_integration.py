@@ -30,8 +30,10 @@ class TestStravaEndpoints:
         assert response.status_code in [503, 520]
         data = response.json()
         assert "detail" in data
-        assert "not configured" in data["detail"].lower() or "contact" in data["detail"].lower()
-        print(f"✓ Strava authorize returns error ({response.status_code}): {data['detail']}")
+        # Error message should be generic (no Strava branding)
+        assert "not configured" in data["detail"].lower()
+        assert "strava" not in data["detail"].lower()  # Should be generic
+        print(f"✓ Strava authorize returns generic error ({response.status_code}): {data['detail']}")
     
     def test_strava_sync_not_connected(self):
         """POST /api/strava/sync - should gracefully handle 'Not connected to Strava' message"""
