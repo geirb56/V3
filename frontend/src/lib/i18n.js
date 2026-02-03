@@ -238,6 +238,26 @@ export const translations = {
       },
     },
     
+    // Workout Analysis (Mobile)
+    analysis: {
+      intensity: "Intensité",
+      load: "Charge",
+      comparison: "vs Référence",
+      pace: "Allure",
+      speed: "Vitesse",
+      avgHr: "FC Moy",
+      paceDelta: "Allure",
+      hrDelta: "FC",
+      coachInsight: "Note Coach",
+      viewFullAnalysis: "Voir analyse complète",
+      askCoach: "Demander au coach",
+      labels: {
+        above_usual: "Au-dessus habituel",
+        below_usual: "En-dessous habituel",
+        normal: "Normal",
+      },
+    },
+    
     // Coach
     coach: {
       title: "Coach",
