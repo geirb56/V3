@@ -245,21 +245,26 @@ export const translations = {
     
     // Workout Analysis (Mobile)
     analysis: {
-      intensity: "Intensité",
+      intensity: "Intensite",
       load: "Charge",
-      comparison: "vs Référence",
+      type: "Type",
       pace: "Allure",
       speed: "Vitesse",
       avgHr: "FC Moy",
-      paceDelta: "Allure",
-      hrDelta: "FC",
-      coachInsight: "Note Coach",
-      viewFullAnalysis: "Voir analyse complète",
-      askCoach: "Demander au coach",
+      coachInsight: "Coach",
+      viewDetailedAnalysis: "Voir l'analyse detaillee",
+      askCoach: "Poser une question au coach",
+      load_up: "Elevee",
+      load_down: "Reduite",
       labels: {
         above_usual: "Au-dessus habituel",
         below_usual: "En-dessous habituel",
         normal: "Normal",
+      },
+      session_types: {
+        easy: "Facile",
+        sustained: "Soutenu",
+        hard: "Difficile",
       },
     },
     
