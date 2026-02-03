@@ -1392,6 +1392,344 @@ async def get_latest_guidance(user_id: str = "default"):
     return guidance
 
 
+# ========== WEEKLY DIGEST ENDPOINTS ==========
+
+class WeeklyDigestResponse(BaseModel):
+    period_start: str
+    period_end: str
+    executive_summary: str
+    metrics: dict
+    signals: List[dict]
+    insights: List[str]
+    generated_at: str
+
+
+DIGEST_PROMPT_EN = """Generate a weekly training digest for this athlete. Be extremely concise.
+
+TRAINING DATA (Last 7 days):
+{training_data}
+
+BASELINE (Previous 7 days for comparison):
+{baseline_data}
+
+Respond in this EXACT JSON format only, no other text:
+{{
+  "executive_summary": "<ONE short sentence, max 15 words. Neutral verdict on the week. Example: 'Solid aerobic week with balanced load.' or 'Volume slightly down, intensity maintained.'>",
+  "insights": [
+    "<insight 1: max 12 words, technical observation>",
+    "<insight 2: max 12 words, technical observation>",
+    "<insight 3: max 12 words, technical observation>"
+  ]
+}}
+
+Rules:
+- executive_summary: ONE sentence, factual, neutral tone, no motivation
+- insights: exactly 3 items, each max 12 words
+- No alarms, no warnings, no medical terms
+- No motivation ("great job", "keep it up")
+- Calm, technical, coach-like observations only
+- Compare to baseline when relevant"""
+
+DIGEST_PROMPT_FR = """Genere un digest hebdomadaire d'entrainement pour cet athlete. Sois extremement concis.
+
+DONNEES D'ENTRAINEMENT (7 derniers jours):
+{training_data}
+
+BASELINE (7 jours precedents pour comparaison):
+{baseline_data}
+
+Reponds UNIQUEMENT dans ce format JSON exact, pas d'autre texte:
+{{
+  "executive_summary": "<UNE phrase courte, max 15 mots. Verdict neutre sur la semaine. Exemple: 'Semaine aerobie solide avec charge equilibree.' ou 'Volume legerement reduit, intensite maintenue.'>",
+  "insights": [
+    "<observation 1: max 12 mots, observation technique>",
+    "<observation 2: max 12 mots, observation technique>",
+    "<observation 3: max 12 mots, observation technique>"
+  ]
+}}
+
+Regles:
+- executive_summary: UNE phrase, factuelle, ton neutre, pas de motivation
+- insights: exactement 3 elements, chacun max 12 mots
+- Pas d'alarmes, pas d'avertissements, pas de termes medicaux
+- Pas de motivation ("bravo", "continue comme ca")
+- Observations calmes, techniques, de coach uniquement
+- Compare a la baseline quand pertinent"""
+
+
+def calculate_digest_metrics(workouts: List[dict], baseline_workouts: List[dict]) -> dict:
+    """Calculate visual metrics for weekly digest"""
+    if not workouts:
+        return {
+            "total_sessions": 0,
+            "total_distance_km": 0,
+            "total_duration_min": 0,
+            "avg_heart_rate": None,
+            "load_status": "no_data",
+            "intensity_balance": "no_data",
+            "volume_vs_baseline": 0,
+            "consistency_score": 0,
+            "by_type": {}
+        }
+    
+    # Current week metrics
+    total_distance = sum(w.get("distance_km", 0) for w in workouts)
+    total_duration = sum(w.get("duration_minutes", 0) for w in workouts)
+    hr_values = [w.get("avg_heart_rate") for w in workouts if w.get("avg_heart_rate")]
+    avg_hr = round(sum(hr_values) / len(hr_values)) if hr_values else None
+    
+    # By type breakdown
+    by_type = {}
+    for w in workouts:
+        t = w.get("type", "other")
+        if t not in by_type:
+            by_type[t] = {"count": 0, "distance_km": 0, "duration_min": 0}
+        by_type[t]["count"] += 1
+        by_type[t]["distance_km"] += w.get("distance_km", 0)
+        by_type[t]["duration_min"] += w.get("duration_minutes", 0)
+    
+    # Zone distribution aggregate
+    zone_totals = {"z1": 0, "z2": 0, "z3": 0, "z4": 0, "z5": 0}
+    zone_count = 0
+    for w in workouts:
+        zones = w.get("effort_zone_distribution", {})
+        if zones:
+            for z, pct in zones.items():
+                if z in zone_totals:
+                    zone_totals[z] += pct
+            zone_count += 1
+    
+    avg_zones = {z: round(v / zone_count) for z, v in zone_totals.items()} if zone_count > 0 else None
+    
+    # Baseline comparison
+    baseline_distance = sum(w.get("distance_km", 0) for w in baseline_workouts) if baseline_workouts else 0
+    baseline_duration = sum(w.get("duration_minutes", 0) for w in baseline_workouts) if baseline_workouts else 0
+    
+    # Volume change percentage
+    if baseline_distance > 0:
+        volume_change = round(((total_distance - baseline_distance) / baseline_distance) * 100)
+    else:
+        volume_change = 100 if total_distance > 0 else 0
+    
+    # Load status based on volume change
+    if volume_change > 20:
+        load_status = "elevated"
+    elif volume_change < -20:
+        load_status = "reduced"
+    else:
+        load_status = "stable"
+    
+    # Intensity balance based on zone distribution
+    if avg_zones:
+        easy_pct = avg_zones.get("z1", 0) + avg_zones.get("z2", 0)
+        hard_pct = avg_zones.get("z4", 0) + avg_zones.get("z5", 0)
+        
+        if easy_pct >= 70:
+            intensity_balance = "aerobic_focused"
+        elif hard_pct >= 30:
+            intensity_balance = "intensity_heavy"
+        else:
+            intensity_balance = "balanced"
+    else:
+        intensity_balance = "unknown"
+    
+    # Consistency score (sessions spread across days)
+    unique_days = len(set(w.get("date", "")[:10] for w in workouts))
+    consistency_score = min(100, round((unique_days / 7) * 100))
+    
+    return {
+        "total_sessions": len(workouts),
+        "total_distance_km": round(total_distance, 1),
+        "total_duration_min": total_duration,
+        "avg_heart_rate": avg_hr,
+        "load_status": load_status,
+        "intensity_balance": intensity_balance,
+        "volume_vs_baseline": volume_change,
+        "consistency_score": consistency_score,
+        "zone_distribution": avg_zones,
+        "by_type": by_type
+    }
+
+
+def generate_digest_signals(metrics: dict) -> List[dict]:
+    """Generate visual signal indicators from metrics"""
+    signals = []
+    
+    # Load signal
+    load_status = metrics.get("load_status", "stable")
+    if load_status == "elevated":
+        signals.append({"key": "load", "status": "up", "value": metrics.get("volume_vs_baseline", 0)})
+    elif load_status == "reduced":
+        signals.append({"key": "load", "status": "down", "value": metrics.get("volume_vs_baseline", 0)})
+    else:
+        signals.append({"key": "load", "status": "stable", "value": metrics.get("volume_vs_baseline", 0)})
+    
+    # Intensity signal
+    intensity = metrics.get("intensity_balance", "balanced")
+    if intensity == "aerobic_focused":
+        signals.append({"key": "intensity", "status": "easy", "value": None})
+    elif intensity == "intensity_heavy":
+        signals.append({"key": "intensity", "status": "hard", "value": None})
+    else:
+        signals.append({"key": "intensity", "status": "balanced", "value": None})
+    
+    # Consistency signal
+    consistency = metrics.get("consistency_score", 0)
+    if consistency >= 70:
+        signals.append({"key": "consistency", "status": "high", "value": consistency})
+    elif consistency >= 40:
+        signals.append({"key": "consistency", "status": "moderate", "value": consistency})
+    else:
+        signals.append({"key": "consistency", "status": "low", "value": consistency})
+    
+    return signals
+
+
+@api_router.get("/coach/digest")
+async def get_weekly_digest(user_id: str = "default", language: str = "en"):
+    """Generate weekly training digest with visual metrics and brief AI insights"""
+    if not EMERGENT_LLM_KEY:
+        raise HTTPException(status_code=500, detail="LLM key not configured")
+    
+    # Get all workouts
+    all_workouts = await db.workouts.find({}, {"_id": 0}).sort("date", -1).to_list(200)
+    if not all_workouts:
+        all_workouts = get_mock_workouts()
+    
+    # Calculate date ranges
+    today = datetime.now(timezone.utc).date()
+    week_start = today - timedelta(days=7)
+    baseline_start = today - timedelta(days=14)
+    
+    # Filter workouts for current week and baseline
+    current_week = []
+    baseline_week = []
+    
+    for w in all_workouts:
+        try:
+            w_date = datetime.fromisoformat(w["date"].replace("Z", "+00:00").split("T")[0]).date()
+            if week_start <= w_date <= today:
+                current_week.append(w)
+            elif baseline_start <= w_date < week_start:
+                baseline_week.append(w)
+        except (ValueError, TypeError, KeyError):
+            continue
+    
+    # Calculate metrics
+    metrics = calculate_digest_metrics(current_week, baseline_week)
+    signals = generate_digest_signals(metrics)
+    
+    # Generate AI insights
+    insights = []
+    executive_summary = ""
+    
+    if current_week:
+        # Build training data summary for AI
+        training_summary = {
+            "sessions": len(current_week),
+            "total_km": metrics["total_distance_km"],
+            "total_min": metrics["total_duration_min"],
+            "avg_hr": metrics["avg_heart_rate"],
+            "by_type": metrics["by_type"],
+            "zones": metrics.get("zone_distribution"),
+            "workouts": [
+                {
+                    "date": w.get("date"),
+                    "type": w.get("type"),
+                    "distance_km": w.get("distance_km"),
+                    "duration_min": w.get("duration_minutes"),
+                    "avg_hr": w.get("avg_heart_rate")
+                } for w in current_week[:7]
+            ]
+        }
+        
+        baseline_summary = {
+            "sessions": len(baseline_week),
+            "total_km": round(sum(w.get("distance_km", 0) for w in baseline_week), 1),
+            "total_min": sum(w.get("duration_minutes", 0) for w in baseline_week)
+        }
+        
+        # Get appropriate prompt
+        prompt_template = DIGEST_PROMPT_FR if language == "fr" else DIGEST_PROMPT_EN
+        prompt = prompt_template.format(
+            training_data=training_summary,
+            baseline_data=baseline_summary
+        )
+        
+        try:
+            chat = LlmChat(
+                api_key=EMERGENT_LLM_KEY,
+                session_id=f"digest_{user_id}_{today.isoformat()}",
+                system_message="You are a concise training analyst. Respond only in valid JSON format."
+            ).with_model("openai", "gpt-5.2")
+            
+            response = await chat.send_message(UserMessage(text=prompt))
+            
+            # Parse JSON response
+            import json
+            try:
+                # Clean response if needed
+                response_clean = response.strip()
+                if response_clean.startswith("```json"):
+                    response_clean = response_clean[7:]
+                if response_clean.startswith("```"):
+                    response_clean = response_clean[3:]
+                if response_clean.endswith("```"):
+                    response_clean = response_clean[:-3]
+                
+                digest_data = json.loads(response_clean.strip())
+                executive_summary = digest_data.get("executive_summary", "")
+                insights = digest_data.get("insights", [])[:3]
+            except json.JSONDecodeError:
+                logger.warning(f"Failed to parse digest JSON: {response[:200]}")
+                executive_summary = "Training data processed." if language == "en" else "Donnees analysees."
+                insights = []
+        
+        except Exception as e:
+            logger.error(f"Digest AI error: {e}")
+            executive_summary = "Training data processed." if language == "en" else "Donnees analysees."
+    else:
+        executive_summary = "No training data this week." if language == "en" else "Aucune donnee cette semaine."
+    
+    # Store digest
+    digest_id = str(uuid.uuid4())
+    await db.digests.insert_one({
+        "id": digest_id,
+        "user_id": user_id,
+        "period_start": week_start.isoformat(),
+        "period_end": today.isoformat(),
+        "executive_summary": executive_summary,
+        "metrics": metrics,
+        "signals": signals,
+        "insights": insights,
+        "language": language,
+        "generated_at": datetime.now(timezone.utc).isoformat()
+    })
+    
+    logger.info(f"Weekly digest generated for user {user_id}: {len(current_week)} workouts")
+    
+    return WeeklyDigestResponse(
+        period_start=week_start.isoformat(),
+        period_end=today.isoformat(),
+        executive_summary=executive_summary,
+        metrics=metrics,
+        signals=signals,
+        insights=insights,
+        generated_at=datetime.now(timezone.utc).isoformat()
+    )
+
+
+@api_router.get("/coach/digest/latest")
+async def get_latest_digest(user_id: str = "default"):
+    """Get the most recent digest for a user"""
+    digest = await db.digests.find_one(
+        {"user_id": user_id},
+        {"_id": 0},
+        sort=[("generated_at", -1)]
+    )
+    return digest
+
+
 # ========== GARMIN INTEGRATION ENDPOINTS (DORMANT - NOT USER-FACING) ==========
 
 @api_router.get("/garmin/status")
