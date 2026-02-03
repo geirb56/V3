@@ -3,6 +3,7 @@ export const translations = {
     // Navigation
     nav: {
       dashboard: "Dashboard",
+      digest: "Digest",
       guidance: "Guidance",
       coach: "Coach",
       progress: "Progress",
@@ -143,6 +144,7 @@ export const translations = {
     // Navigation
     nav: {
       dashboard: "Tableau de bord",
+      digest: "Digest",
       guidance: "Recommandations",
       coach: "Coach",
       progress: "Progression",
