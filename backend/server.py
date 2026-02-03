@@ -1392,11 +1392,11 @@ async def get_latest_guidance(user_id: str = "default"):
     return guidance
 
 
-# ========== GARMIN INTEGRATION ENDPOINTS ==========
+# ========== GARMIN INTEGRATION ENDPOINTS (DORMANT - NOT USER-FACING) ==========
 
 @api_router.get("/garmin/status")
 async def get_garmin_status(user_id: str = "default"):
-    """Get Garmin connection status for a user"""
+    """Get Garmin connection status for a user (DORMANT)"""
     # Check if user has Garmin token
     token = await db.garmin_tokens.find_one({"user_id": user_id}, {"_id": 0})
     
@@ -1405,7 +1405,7 @@ async def get_garmin_status(user_id: str = "default"):
     
     # Get last sync time and workout count
     sync_info = await db.sync_history.find_one(
-        {"user_id": user_id},
+        {"user_id": user_id, "source": "garmin"},
         {"_id": 0},
         sort=[("synced_at", -1)]
     )
@@ -1423,7 +1423,7 @@ async def get_garmin_status(user_id: str = "default"):
 
 @api_router.get("/garmin/authorize")
 async def garmin_authorize():
-    """Initiate Garmin OAuth flow"""
+    """Initiate Garmin OAuth flow (DORMANT)"""
     if not GARMIN_CLIENT_ID or not GARMIN_CLIENT_SECRET:
         raise HTTPException(
             status_code=503, 
@@ -1442,7 +1442,7 @@ async def garmin_authorize():
 
 @api_router.get("/garmin/callback")
 async def garmin_callback(code: str, state: str):
-    """Handle Garmin OAuth callback"""
+    """Handle Garmin OAuth callback (DORMANT)"""
     if state not in pkce_store:
         raise HTTPException(status_code=400, detail="Invalid state parameter")
     
@@ -1482,7 +1482,7 @@ async def garmin_callback(code: str, state: str):
 
 @api_router.post("/garmin/sync", response_model=GarminSyncResult)
 async def sync_garmin_activities(user_id: str = "default"):
-    """Sync activities from Garmin Connect"""
+    """Sync activities from Garmin Connect (DORMANT)"""
     # Get token
     token = await db.garmin_tokens.find_one({"user_id": user_id}, {"_id": 0})
     
@@ -1538,10 +1538,216 @@ async def sync_garmin_activities(user_id: str = "default"):
 
 @api_router.delete("/garmin/disconnect")
 async def disconnect_garmin(user_id: str = "default"):
-    """Disconnect Garmin account"""
+    """Disconnect Garmin account (DORMANT)"""
     await db.garmin_tokens.delete_one({"user_id": user_id})
     logger.info(f"Garmin disconnected for user: {user_id}")
     return {"success": True, "message": "Garmin disconnected"}
+
+
+# ========== STRAVA INTEGRATION ENDPOINTS (ACTIVE) ==========
+
+class StravaConnectionStatus(BaseModel):
+    connected: bool
+    last_sync: Optional[str] = None
+    workout_count: int = 0
+
+
+class StravaSyncResult(BaseModel):
+    success: bool
+    synced_count: int
+    message: str
+
+
+# Temporary storage for Strava OAuth state (in production, use Redis or DB)
+strava_oauth_store: Dict[str, str] = {}
+
+
+@api_router.get("/strava/status")
+async def get_strava_status(user_id: str = "default"):
+    """Get Strava connection status for a user"""
+    # Check if user has Strava token
+    token = await db.strava_tokens.find_one({"user_id": user_id}, {"_id": 0})
+    
+    if not token:
+        return StravaConnectionStatus(connected=False, last_sync=None, workout_count=0)
+    
+    # Get last sync time
+    sync_info = await db.sync_history.find_one(
+        {"user_id": user_id, "source": "strava"},
+        {"_id": 0},
+        sort=[("synced_at", -1)]
+    )
+    
+    # Count imported Strava workouts
+    workout_count = await db.workouts.count_documents({
+        "data_source": "strava"
+    })
+    
+    return StravaConnectionStatus(
+        connected=True,
+        last_sync=sync_info.get("synced_at") if sync_info else None,
+        workout_count=workout_count
+    )
+
+
+@api_router.get("/strava/authorize")
+async def strava_authorize(user_id: str = "default"):
+    """Initiate Strava OAuth flow"""
+    if not STRAVA_CLIENT_ID or not STRAVA_CLIENT_SECRET:
+        raise HTTPException(
+            status_code=503, 
+            detail="Strava integration not configured. Please contact the administrator."
+        )
+    
+    # Generate state for security
+    state = secrets.token_urlsafe(32)
+    
+    # Store state with user_id for callback
+    strava_oauth_store[state] = user_id
+    
+    # Build Strava authorization URL
+    redirect_uri = STRAVA_REDIRECT_URI or f"{FRONTEND_URL}/settings"
+    scope = "read,activity:read_all"
+    
+    auth_url = (
+        f"https://www.strava.com/oauth/authorize"
+        f"?client_id={STRAVA_CLIENT_ID}"
+        f"&response_type=code"
+        f"&redirect_uri={redirect_uri}"
+        f"&scope={scope}"
+        f"&state={state}"
+    )
+    
+    return {"authorization_url": auth_url, "state": state}
+
+
+@api_router.get("/strava/callback")
+async def strava_callback(code: str, state: str, scope: str = None):
+    """Handle Strava OAuth callback"""
+    if state not in strava_oauth_store:
+        logger.warning(f"Invalid state parameter received: {state}")
+        return RedirectResponse(url=f"{FRONTEND_URL}/settings?strava=error&reason=invalid_state")
+    
+    user_id = strava_oauth_store.pop(state)
+    
+    try:
+        # Exchange code for tokens
+        token_data = await exchange_strava_code(code)
+        access_token = token_data.get("access_token")
+        refresh_token = token_data.get("refresh_token")
+        expires_at = token_data.get("expires_at")  # Strava returns Unix timestamp
+        athlete_info = token_data.get("athlete", {})
+        
+        # Store token
+        await db.strava_tokens.update_one(
+            {"user_id": user_id},
+            {"$set": {
+                "user_id": user_id,
+                "access_token": access_token,
+                "refresh_token": refresh_token,
+                "expires_at": expires_at,
+                "athlete_id": athlete_info.get("id"),
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }},
+            upsert=True
+        )
+        
+        logger.info(f"Strava connected for user: {user_id}, athlete: {athlete_info.get('id')}")
+        
+        # Redirect back to frontend settings
+        return RedirectResponse(url=f"{FRONTEND_URL}/settings?strava=connected")
+    
+    except httpx.HTTPStatusError as e:
+        logger.error(f"Strava OAuth HTTP error: {e.response.status_code} - {e.response.text}")
+        return RedirectResponse(url=f"{FRONTEND_URL}/settings?strava=error&reason=token_exchange_failed")
+    except Exception as e:
+        logger.error(f"Strava OAuth error: {e}")
+        return RedirectResponse(url=f"{FRONTEND_URL}/settings?strava=error&reason=unknown")
+
+
+@api_router.post("/strava/sync", response_model=StravaSyncResult)
+async def sync_strava_activities(user_id: str = "default"):
+    """Sync activities from Strava"""
+    # Get token
+    token = await db.strava_tokens.find_one({"user_id": user_id}, {"_id": 0})
+    
+    if not token:
+        return StravaSyncResult(success=False, synced_count=0, message="Not connected to Strava")
+    
+    access_token = token.get("access_token")
+    refresh_token = token.get("refresh_token")
+    expires_at = token.get("expires_at")
+    
+    # Check if token is expired and refresh if needed
+    if expires_at:
+        if isinstance(expires_at, (int, float)):
+            token_expired = expires_at < datetime.now(timezone.utc).timestamp()
+        else:
+            token_expired = False
+            
+        if token_expired and refresh_token:
+            try:
+                # Refresh the token
+                new_token_data = await refresh_strava_token(refresh_token)
+                access_token = new_token_data.get("access_token")
+                
+                # Update stored token
+                await db.strava_tokens.update_one(
+                    {"user_id": user_id},
+                    {"$set": {
+                        "access_token": new_token_data.get("access_token"),
+                        "refresh_token": new_token_data.get("refresh_token"),
+                        "expires_at": new_token_data.get("expires_at")
+                    }}
+                )
+                logger.info(f"Strava token refreshed for user: {user_id}")
+            except Exception as e:
+                logger.error(f"Failed to refresh Strava token: {e}")
+                return StravaSyncResult(success=False, synced_count=0, message="Token expired. Please reconnect.")
+    
+    try:
+        # Fetch activities from Strava
+        activities = await fetch_strava_activities(access_token, per_page=100)
+        
+        synced_count = 0
+        for strava_activity in activities:
+            workout = convert_strava_to_workout(strava_activity)
+            
+            if workout:
+                # Check if already exists
+                existing = await db.workouts.find_one({"id": workout["id"]})
+                if not existing:
+                    await db.workouts.insert_one(workout)
+                    synced_count += 1
+        
+        # Record sync history
+        await db.sync_history.insert_one({
+            "user_id": user_id,
+            "synced_at": datetime.now(timezone.utc).isoformat(),
+            "synced_count": synced_count,
+            "source": "strava"
+        })
+        
+        logger.info(f"Strava sync complete: {synced_count} workouts for user {user_id}")
+        
+        return StravaSyncResult(success=True, synced_count=synced_count, message=f"Synced {synced_count} workouts")
+    
+    except httpx.HTTPStatusError as e:
+        logger.error(f"Strava API error: {e.response.status_code} - {e.response.text}")
+        if e.response.status_code == 401:
+            return StravaSyncResult(success=False, synced_count=0, message="Token expired. Please reconnect.")
+        return StravaSyncResult(success=False, synced_count=0, message="Failed to fetch activities")
+    except Exception as e:
+        logger.error(f"Strava sync error: {e}")
+        return StravaSyncResult(success=False, synced_count=0, message="Sync failed")
+
+
+@api_router.delete("/strava/disconnect")
+async def disconnect_strava(user_id: str = "default"):
+    """Disconnect Strava account"""
+    await db.strava_tokens.delete_one({"user_id": user_id})
+    logger.info(f"Strava disconnected for user: {user_id}")
+    return {"success": True, "message": "Strava disconnected"}
 
 
 # Include the router

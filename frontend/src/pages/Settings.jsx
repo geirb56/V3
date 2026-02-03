@@ -13,75 +13,77 @@ const USER_ID = "default";
 export default function Settings() {
   const { t, lang, setLang } = useLanguage();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [garminStatus, setGarminStatus] = useState(null);
-  const [loadingGarmin, setLoadingGarmin] = useState(true);
+  const [stravaStatus, setStravaStatus] = useState(null);
+  const [loadingStrava, setLoadingStrava] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [connecting, setConnecting] = useState(false);
 
   useEffect(() => {
-    loadGarminStatus();
+    loadStravaStatus();
     
     // Handle OAuth callback
-    const garminParam = searchParams.get("garmin");
-    if (garminParam === "connected") {
-      toast.success(lang === "fr" ? "Garmin connecte" : "Garmin connected");
+    const stravaParam = searchParams.get("strava");
+    if (stravaParam === "connected") {
+      toast.success(lang === "fr" ? "Compte connecte" : "Account connected");
       setSearchParams({});
-      loadGarminStatus();
-    } else if (garminParam === "error") {
-      toast.error(lang === "fr" ? "Erreur de connexion" : "Connection failed");
+      loadStravaStatus();
+    } else if (stravaParam === "error") {
+      const reason = searchParams.get("reason");
+      const errorMsg = lang === "fr" ? "Erreur de connexion" : "Connection failed";
+      toast.error(errorMsg);
       setSearchParams({});
     }
   }, [searchParams]);
 
-  const loadGarminStatus = async () => {
+  const loadStravaStatus = async () => {
     try {
-      const res = await axios.get(`${API}/garmin/status?user_id=${USER_ID}`);
-      setGarminStatus(res.data);
+      const res = await axios.get(`${API}/strava/status?user_id=${USER_ID}`);
+      setStravaStatus(res.data);
     } catch (error) {
-      console.error("Failed to load Garmin status:", error);
-      setGarminStatus({ connected: false, last_sync: null, workout_count: 0 });
+      console.error("Failed to load connection status:", error);
+      setStravaStatus({ connected: false, last_sync: null, workout_count: 0 });
     } finally {
-      setLoadingGarmin(false);
+      setLoadingStrava(false);
     }
   };
 
-  const handleConnectGarmin = async () => {
+  const handleConnect = async () => {
     setConnecting(true);
     try {
-      const res = await axios.get(`${API}/garmin/authorize`);
-      // Redirect to Garmin OAuth
+      const res = await axios.get(`${API}/strava/authorize?user_id=${USER_ID}`);
+      // Redirect to OAuth
       window.location.href = res.data.authorization_url;
     } catch (error) {
-      console.error("Failed to initiate Garmin auth:", error);
+      console.error("Failed to initiate auth:", error);
       const message = error.response?.data?.detail || (lang === "fr" ? "Erreur de connexion" : "Connection failed");
       toast.error(message);
       setConnecting(false);
     }
   };
 
-  const handleDisconnectGarmin = async () => {
+  const handleDisconnect = async () => {
     try {
-      await axios.delete(`${API}/garmin/disconnect?user_id=${USER_ID}`);
-      setGarminStatus({ connected: false, last_sync: null, workout_count: 0 });
-      toast.success(lang === "fr" ? "Garmin deconnecte" : "Garmin disconnected");
+      await axios.delete(`${API}/strava/disconnect?user_id=${USER_ID}`);
+      setStravaStatus({ connected: false, last_sync: null, workout_count: 0 });
+      toast.success(lang === "fr" ? "Compte deconnecte" : "Account disconnected");
     } catch (error) {
-      console.error("Failed to disconnect Garmin:", error);
+      console.error("Failed to disconnect:", error);
       toast.error(lang === "fr" ? "Erreur" : "Error");
     }
   };
 
-  const handleSyncGarmin = async () => {
+  const handleSync = async () => {
     setSyncing(true);
     try {
-      const res = await axios.post(`${API}/garmin/sync?user_id=${USER_ID}`);
+      const res = await axios.post(`${API}/strava/sync?user_id=${USER_ID}`);
       if (res.data.success) {
         toast.success(res.data.message);
-        loadGarminStatus();
+        loadStravaStatus();
       } else {
         toast.error(res.data.message);
       }
     } catch (error) {
-      console.error("Failed to sync Garmin:", error);
+      console.error("Failed to sync:", error);
       toast.error(lang === "fr" ? "Erreur de synchronisation" : "Sync failed");
     } finally {
       setSyncing(false);
@@ -140,12 +142,12 @@ export default function Settings() {
                   {t("settings.dataSyncDesc")}
                 </p>
                 
-                {loadingGarmin ? (
+                {loadingStrava ? (
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Loader2 className="w-4 h-4 animate-spin" />
                     <span className="font-mono text-xs">{t("common.loading")}</span>
                   </div>
-                ) : garminStatus?.connected ? (
+                ) : stravaStatus?.connected ? (
                   <div className="space-y-4">
                     {/* Connected Status */}
                     <div className="flex items-center gap-2 text-chart-2">
@@ -163,7 +165,7 @@ export default function Settings() {
                             {t("settings.lastSync")}
                           </p>
                           <p className="font-mono text-sm">
-                            {formatLastSync(garminStatus.last_sync)}
+                            {formatLastSync(stravaStatus.last_sync)}
                           </p>
                         </div>
                         <div className="text-right">
@@ -171,7 +173,7 @@ export default function Settings() {
                             {t("settings.workouts")}
                           </p>
                           <p className="font-mono text-sm">
-                            {garminStatus.workout_count}
+                            {stravaStatus.workout_count}
                           </p>
                         </div>
                       </div>
@@ -180,9 +182,9 @@ export default function Settings() {
                     {/* Actions */}
                     <div className="flex gap-3">
                       <Button
-                        onClick={handleSyncGarmin}
+                        onClick={handleSync}
                         disabled={syncing}
-                        data-testid="sync-garmin"
+                        data-testid="sync-strava"
                         className="bg-primary text-white hover:bg-primary/90 rounded-none uppercase font-bold tracking-wider text-xs h-9 px-4 flex items-center gap-2"
                       >
                         {syncing ? (
@@ -193,9 +195,9 @@ export default function Settings() {
                         {t("settings.sync")}
                       </Button>
                       <Button
-                        onClick={handleDisconnectGarmin}
+                        onClick={handleDisconnect}
                         variant="ghost"
-                        data-testid="disconnect-garmin"
+                        data-testid="disconnect-strava"
                         className="text-muted-foreground hover:text-destructive rounded-none uppercase font-mono text-xs h-9 px-4"
                       >
                         {t("settings.disconnect")}
@@ -211,9 +213,9 @@ export default function Settings() {
                       </span>
                     </div>
                     <Button
-                      onClick={handleConnectGarmin}
+                      onClick={handleConnect}
                       disabled={connecting}
-                      data-testid="connect-garmin"
+                      data-testid="connect-strava"
                       className="bg-primary text-white hover:bg-primary/90 rounded-none uppercase font-bold tracking-wider text-xs h-9 px-4 flex items-center gap-2"
                     >
                       {connecting ? (
@@ -292,7 +294,7 @@ export default function Settings() {
                   {t("settings.aboutDesc")}
                 </p>
                 <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                  {t("settings.version")} 1.1.0
+                  {t("settings.version")} 1.2.0
                 </p>
               </div>
             </div>
