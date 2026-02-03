@@ -1,0 +1,188 @@
+<analysis>Analyse the user's request and provide a useful summary for the next agent to continue the work.
+
+**original_problem_statement:**
+The user wants to build an AI-powered endurance coaching app called CardioCoach.
+
+**PRODUCT REQUIREMENTS:**
+- **Core App:** An elite endurance coach for running, cycling, and cardio sports. It is NOT a medical application. The AI persona should be calm, neutral, and precise.
+- **Data Source:** Initially, use mock data. The long-term goal is to import workout data from external services. Manual workout logging is explicitly excluded.
+- **Core Features:**
+    - AI analysis and insights on logged workouts.
+    - Training history and progress tracking.
+    - Bilingual support (English/French) with a language switch.
+    - Persistent AI coach memory to recall past workouts and advice.
+    - Analyze workout button for a deep technical analysis of a specific workout.
+    - Contextual comparison: The analysis should compare the current workout to the user's recent baseline (last 7–14 days).
+    - Hidden Insight: A probabilistic, non-obvious insight at the end of an analysis.
+    - Adaptive Training Guidance: Provide short-term (weekly, max 3 sessions) training recommendations based on recent activity.
+- **API Integrations:**
+    - **LLM:** Use the Emergent LLM Key for AI capabilities.
+    - **Garmin Connect:** Integrate to import real user workouts (running/cycling). (A placeholder structure has been built).
+    - **Strava:** Integrate as the primary data source to import real user workouts (running/cycling).
+- **Design:** Dark, athletic, serious, and minimal theme. Avoid social features, GPS maps, and gamification.
+
+**User's preferred language**: English
+
+**what currently exists?**
+A full-stack application (React frontend, FastAPI backend, MongoDB) named CardioCoach.
+- **Frontend:** A complete UI with a dark theme, featuring a Dashboard, AI Coach chat, Workout Details, Progress Trends, Adaptive Guidance, and a Settings page. Full bilingual (EN/FR) support is implemented using an i18n library and a language context provider.
+- **Backend:** A robust API with endpoints for fetching mock workout data, retrieving training stats, and interacting with the AI coach.
+- **AI Features:** The AI coach provides deep workout analysis, remembers conversation history, compares workouts to a user's baseline, offers probabilistic hidden insights, and generates adaptive training guidance.
+- **Integrations:**
+    - The Emergent LLM key is integrated for all AI features.
+    - A full placeholder structure for Garmin Connect API integration exists, including OAuth endpoints and a UI toggle in Settings. It is currently non-functional pending real credentials.
+- **Data:** All workout data is currently mocked within the backend  file.
+
+**Last working item**:
+- **Last item agent was working:** Implementing the Strava API integration to serve as the primary workout data source, replacing the mocked data. The agent has received the integration playbook and started modifying the backend.
+- **Status:** IN PROGRESS
+- **Agent Testing Done:** N
+- **Which testing method agent to use?** both
+- **User Testing Done:** N
+
+**All Pending/In progress Issue list**:
+-   **Issue 1:** The AI's response format for deep analysis does not always strictly adhere to the requested section headers (e.g., ). The agent noted this but moved on as the analysis quality was sufficient. This could be revisited for more reliable frontend parsing. (Priority: P2)
+
+**Issues Detail**:
+-   **Issue 1:** AI response format inconsistency
+    -   **Attempted fixes:** None. The agent observed the issue during manual  testing but decided the feature was functionally acceptable.
+    -   **Next debug checklist:**
+        1.  Review the  and  in .
+        2.  Experiment with making the prompt more explicit about required output formatting (e.g., using XML tags or JSON format instructions).
+        3.  Test the  endpoint repeatedly to check if prompt changes improve format adherence.
+    -   **Why fix this issue and what will be achieved with the fix?** A consistent response format would allow the frontend to parse and display different sections of the analysis (e.g., Trend, Signal, Insight) with custom styling, improving the UX.
+    -   **Status:** NOT STARTED
+    -   **Is recurring issue?** Y
+    -   **Should Test frontend/backend/both after fix?** backend
+    -   **Blocked on other issue:** None
+
+**In progress Task List**:
+-   **Task 1:** Complete the Strava API Integration (Priority: P0)
+
+**Task Detail**:
+-   **Task 1:** Complete the Strava API Integration
+    -   **Where to resume:**
+        1.  Add the Strava API endpoints (, , , ) to , following the pattern used for the Garmin endpoints. These should be placeholder endpoints that return a  status if credentials are not set.
+        2.  Add  and  placeholder variables to the  file.
+        3.  Update the frontend  to add a Connect with Strava button and UI logic, similar to the existing Garmin implementation.
+        4.  Add the necessary translations for the new UI elements in .
+    -   **What will be achieved with this?** A complete, placeholder structure for Strava integration will be in place, making the app ready for real user credentials and data sync.
+    -   **Status:** IN PROGRESS
+    -   **Should Test frontend/backend/both after fix?** both
+    -   **Blocked on something:** None
+
+**Upcoming and Future Tasks**
+- **P1:** Implement real data fetching by prompting the user to provide API credentials for either Strava or Garmin.
+- **P1:** Replace all mocked workout data in  with calls to the workouts collection in MongoDB, which will be populated by the API syncs.
+- **P2:** Add a weekly digest feature where the coach proactively analyzes the week's training.
+- **P2:** Implement a recovery score calculation based on training load and trend signals.
+- **P2:** Add an Ask about this insight follow-up capability to make the AI more interactive.
+
+**Completed work in this session**
+- **MVP Scaffolding:** Initial setup of the full-stack app with mock data and core pages (Dashboard, Coach).
+- **Bilingual Support (EN/FR):** Implemented app-wide translation using a context provider and i18n dictionaries.
+- **Persistent Coach Memory:** The AI coach now remembers conversation history for each user.
+- **Deep Workout Analysis:** Added a feature to trigger a detailed, expert-level analysis of a specific workout.
+- **Contextual Baseline Comparison:** Enhanced the analysis to compare workouts against the user's recent 14-day baseline.
+- **Hidden Insight Feature:** Added a probabilistic, non-obvious insight to the end of analyses.
+- **Adaptive Training Guidance:** Created a feature to provide weekly, adaptive training recommendations.
+- **Garmin Connect API Structure:** Built a complete placeholder integration for Garmin Connect, including OAuth endpoints and UI.
+
+**Earlier issues found/mentioned but not fixed**
+- **Issue 1:** AI response format for deep analysis doesn't always strictly follow the prompt's section headers.
+    - **Debug checklist:** Review and refine the s in  to be more prescriptive about the output format.
+    - **Why to solve this issue and what will be achieved with this?** To enable more robust parsing and custom rendering of analysis sections on the frontend.
+    - **Should Test frontend/backend/both after fix:** backend
+    - **Is recurring issue?** Y
+
+**Known issue recurrence from previous fork**
+- None.
+
+**Code Architecture**
+
+
+**Key Technical Concepts**
+- **Backend:** FastAPI, MongoDB (via ), Pydantic models.
+- **Frontend:** React, Tailwind CSS, .
+- **AI:**  library using the Emergent LLM Key.
+- **State Management:** React Context API for language preference.
+- **i18n:** Custom implementation with JSON objects for EN/FR translations.
+- **API Authentication:** Placeholder OAuth 2.0 flow for Garmin and Strava.
+
+**key DB schema**
+-   **workouts**: 
+-   **conversations**: 
+-   **garmin_tokens / strava_tokens**: (Planned) 
+
+**changes in tech stack**
+- None.
+
+**All files of reference**
+- : Contains the entire backend logic, including all API endpoints, models, and AI prompts. It has been heavily modified throughout the session.
+- : All page components were created and updated to add new features.
+- : Contains all EN/FR translations; updated with every new UI feature.
+- : Updated to add routes for new pages (, ).
+- : Updated to add navigation links for new pages.
+- : Created to manage global language state.
+- : Contains the product requirements and a log of completed features.
+
+**Areas that need refactoring**:
+-  is now over 1200 lines long and contains models, utility functions, AI prompts, and all API routes. It should be broken down into a more modular structure, for example:
+    -  for Pydantic models.
+    -  for database operations.
+    -  for all LLM system prompts.
+    - A  directory with separate files for different API concerns (e.g., , , ).
+
+**key api endpoints**
+- : GETs a list of (mocked) workouts.
+- : GETs aggregated training statistics.
+- : POSTs a message/workout for AI analysis, using conversation memory.
+- : GETs the user's conversation history.
+- : POSTs for adaptive training guidance.
+- : (Placeholder) Initiates Garmin OAuth flow.
+- : (Placeholder) Triggers a sync of Garmin workouts.
+
+**Critical Info for New Agent**
+- **Data is Mocked:** All workout data is currently hardcoded in . The primary goal of the current and next tasks is to replace this with real data from Strava/Garmin.
+- **API Integrations are Placeholders:** The Garmin and Strava integrations are structurally complete but non-functional. They use placeholder credentials and endpoints that return . The user is aware and has approved this approach, pending access to real developer keys. Do not attempt to fix them without user-provided credentials.
+- **Backend Refactoring:** The  file is monolithic. While not an explicit user request, suggesting or performing a refactor to improve maintainability would be a valuable next step after completing the core integration work.
+
+**documents and test reports created in this job**
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+
+**Last 10 User Messages and any pending HUMAN messages**
+1. **User:** Requested Strava API integration as the primary data source. (IN PROGRESS)
+2. **Agent:** Acknowledged the request and fetched the Strava integration playbook.
+3. **Agent:** Began implementing the Strava integration in  by adding helper functions.
+
+**Project Health Check:**
+- **Broken:** None.
+- **Mocked:**
+    - All workout data is currently mocked.
+    - The Garmin Connect API integration is a non-functional placeholder.
+    - The Strava API integration (in progress) will also be a non-functional placeholder until real credentials are provided.
+
+**3rd Party Integrations**
+- **Emergent LLM Key:** Used for all Large Language Model features (analysis, guidance) via the  library.
+- **Garmin Connect API:** Placeholder integration exists. Requires user API Key for full functionality.
+- **Strava API:** Integration is in progress. Requires user API Key for full functionality.
+
+**Testing status**
+- **Testing agent used after significant changes:** YES. The  was used after every major feature implementation.
+- **Troubleshoot agent used after agent stuck in loop:** NO.
+- **Test files created:** None.
+- **Known regressions:** None.
+
+**Credentials to test flow:**
+- No credentials are required as the app currently runs on mocked data.
+
+**What agent forgot to execute**
+- The agent has not yet added the placeholder  and  to the  file.
+- The agent has not yet updated the frontend () to include UI for the Strava connection.</analysis>
