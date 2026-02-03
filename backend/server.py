@@ -865,13 +865,16 @@ def calculate_baseline_metrics(workouts: List[dict], current_workout: dict, days
 # ========== MOCK DATA FOR DEMO ==========
 
 def get_mock_workouts():
-    """Generate mock workout data for demonstration"""
+    """Generate mock workout data for demonstration with recent dates"""
+    from datetime import datetime, timedelta, timezone
+    today = datetime.now(timezone.utc).date()
+    
     return [
         {
             "id": "w001",
             "type": "run",
             "name": "Morning Easy Run",
-            "date": "2026-01-13",
+            "date": (today - timedelta(days=0)).isoformat(),
             "duration_minutes": 45,
             "distance_km": 8.2,
             "avg_heart_rate": 142,
@@ -882,13 +885,13 @@ def get_mock_workouts():
             "effort_zone_distribution": {"z1": 15, "z2": 55, "z3": 25, "z4": 5, "z5": 0},
             "notes": None,
             "data_source": "manual",
-            "created_at": "2026-01-13T07:30:00Z"
+            "created_at": datetime.now(timezone.utc).isoformat()
         },
         {
             "id": "w002",
             "type": "cycle",
             "name": "Tempo Ride",
-            "date": "2026-01-12",
+            "date": (today - timedelta(days=1)).isoformat(),
             "duration_minutes": 90,
             "distance_km": 42.5,
             "avg_heart_rate": 155,
@@ -899,13 +902,13 @@ def get_mock_workouts():
             "effort_zone_distribution": {"z1": 5, "z2": 25, "z3": 45, "z4": 20, "z5": 5},
             "notes": None,
             "data_source": "manual",
-            "created_at": "2026-01-12T09:00:00Z"
+            "created_at": datetime.now(timezone.utc).isoformat()
         },
         {
             "id": "w003",
             "type": "run",
             "name": "Interval Session",
-            "date": "2026-01-11",
+            "date": (today - timedelta(days=2)).isoformat(),
             "duration_minutes": 52,
             "distance_km": 10.1,
             "avg_heart_rate": 162,
@@ -916,13 +919,13 @@ def get_mock_workouts():
             "effort_zone_distribution": {"z1": 10, "z2": 20, "z3": 25, "z4": 30, "z5": 15},
             "notes": "5x1000m @ threshold",
             "data_source": "manual",
-            "created_at": "2026-01-11T06:45:00Z"
+            "created_at": datetime.now(timezone.utc).isoformat()
         },
         {
             "id": "w004",
             "type": "run",
             "name": "Long Run",
-            "date": "2026-01-10",
+            "date": (today - timedelta(days=3)).isoformat(),
             "duration_minutes": 105,
             "distance_km": 18.5,
             "avg_heart_rate": 138,
@@ -933,13 +936,13 @@ def get_mock_workouts():
             "effort_zone_distribution": {"z1": 20, "z2": 65, "z3": 15, "z4": 0, "z5": 0},
             "notes": None,
             "data_source": "manual",
-            "created_at": "2026-01-10T07:00:00Z"
+            "created_at": datetime.now(timezone.utc).isoformat()
         },
         {
             "id": "w005",
             "type": "cycle",
             "name": "Recovery Spin",
-            "date": "2026-01-09",
+            "date": (today - timedelta(days=4)).isoformat(),
             "duration_minutes": 45,
             "distance_km": 18.0,
             "avg_heart_rate": 118,
@@ -950,13 +953,13 @@ def get_mock_workouts():
             "effort_zone_distribution": {"z1": 60, "z2": 35, "z3": 5, "z4": 0, "z5": 0},
             "notes": None,
             "data_source": "manual",
-            "created_at": "2026-01-09T17:30:00Z"
+            "created_at": datetime.now(timezone.utc).isoformat()
         },
         {
             "id": "w006",
             "type": "run",
             "name": "Hill Repeats",
-            "date": "2026-01-08",
+            "date": (today - timedelta(days=5)).isoformat(),
             "duration_minutes": 48,
             "distance_km": 8.8,
             "avg_heart_rate": 158,
@@ -967,13 +970,13 @@ def get_mock_workouts():
             "effort_zone_distribution": {"z1": 10, "z2": 25, "z3": 30, "z4": 25, "z5": 10},
             "notes": "8x200m hill sprints",
             "data_source": "manual",
-            "created_at": "2026-01-08T06:30:00Z"
+            "created_at": datetime.now(timezone.utc).isoformat()
         },
         {
             "id": "w007",
             "type": "cycle",
             "name": "Endurance Base",
-            "date": "2026-01-07",
+            "date": (today - timedelta(days=6)).isoformat(),
             "duration_minutes": 120,
             "distance_km": 55.0,
             "avg_heart_rate": 135,
@@ -984,7 +987,93 @@ def get_mock_workouts():
             "effort_zone_distribution": {"z1": 15, "z2": 60, "z3": 20, "z4": 5, "z5": 0},
             "notes": None,
             "data_source": "manual",
-            "created_at": "2026-01-07T08:00:00Z"
+            "created_at": datetime.now(timezone.utc).isoformat()
+        },
+        # Baseline week (days 7-13)
+        {
+            "id": "w008",
+            "type": "run",
+            "name": "Recovery Run",
+            "date": (today - timedelta(days=8)).isoformat(),
+            "duration_minutes": 35,
+            "distance_km": 6.0,
+            "avg_heart_rate": 135,
+            "max_heart_rate": 148,
+            "avg_pace_min_km": 5.83,
+            "elevation_gain_m": 40,
+            "calories": 380,
+            "effort_zone_distribution": {"z1": 25, "z2": 60, "z3": 15, "z4": 0, "z5": 0},
+            "notes": None,
+            "data_source": "manual",
+            "created_at": datetime.now(timezone.utc).isoformat()
+        },
+        {
+            "id": "w009",
+            "type": "cycle",
+            "name": "Steady Ride",
+            "date": (today - timedelta(days=9)).isoformat(),
+            "duration_minutes": 75,
+            "distance_km": 35.0,
+            "avg_heart_rate": 140,
+            "max_heart_rate": 158,
+            "avg_speed_kmh": 28.0,
+            "elevation_gain_m": 250,
+            "calories": 950,
+            "effort_zone_distribution": {"z1": 10, "z2": 50, "z3": 30, "z4": 10, "z5": 0},
+            "notes": None,
+            "data_source": "manual",
+            "created_at": datetime.now(timezone.utc).isoformat()
+        },
+        {
+            "id": "w010",
+            "type": "run",
+            "name": "Tempo Run",
+            "date": (today - timedelta(days=10)).isoformat(),
+            "duration_minutes": 50,
+            "distance_km": 10.0,
+            "avg_heart_rate": 155,
+            "max_heart_rate": 170,
+            "avg_pace_min_km": 5.0,
+            "elevation_gain_m": 60,
+            "calories": 620,
+            "effort_zone_distribution": {"z1": 5, "z2": 30, "z3": 45, "z4": 15, "z5": 5},
+            "notes": None,
+            "data_source": "manual",
+            "created_at": datetime.now(timezone.utc).isoformat()
+        },
+        {
+            "id": "w011",
+            "type": "run",
+            "name": "Easy Run",
+            "date": (today - timedelta(days=12)).isoformat(),
+            "duration_minutes": 40,
+            "distance_km": 7.5,
+            "avg_heart_rate": 140,
+            "max_heart_rate": 155,
+            "avg_pace_min_km": 5.33,
+            "elevation_gain_m": 50,
+            "calories": 450,
+            "effort_zone_distribution": {"z1": 20, "z2": 55, "z3": 20, "z4": 5, "z5": 0},
+            "notes": None,
+            "data_source": "manual",
+            "created_at": datetime.now(timezone.utc).isoformat()
+        },
+        {
+            "id": "w012",
+            "type": "cycle",
+            "name": "Long Ride",
+            "date": (today - timedelta(days=13)).isoformat(),
+            "duration_minutes": 150,
+            "distance_km": 70.0,
+            "avg_heart_rate": 132,
+            "max_heart_rate": 155,
+            "avg_speed_kmh": 28.0,
+            "elevation_gain_m": 550,
+            "calories": 1850,
+            "effort_zone_distribution": {"z1": 20, "z2": 60, "z3": 15, "z4": 5, "z5": 0},
+            "notes": None,
+            "data_source": "manual",
+            "created_at": datetime.now(timezone.utc).isoformat()
         }
     ]
 
