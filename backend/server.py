@@ -1833,6 +1833,235 @@ async def get_latest_digest(user_id: str = "default"):
     return digest
 
 
+# ========== MOBILE-FIRST WORKOUT ANALYSIS ==========
+
+MOBILE_ANALYSIS_PROMPT_EN = """Analyze this workout for a mobile screen. Be extremely concise.
+
+WORKOUT DATA:
+{workout_data}
+
+BASELINE (last 14 days, same type):
+{baseline_data}
+
+Respond in this EXACT JSON format only:
+{{
+  "coach_summary": "<ONE sentence, max 20 words. Plain language comparing this session to recent baseline. Example: 'More intense and longer than your recent standard.'>",
+  "insight": "<Max 2 short sentences. No jargon. Calm, factual observation about this workout pattern.>",
+  "guidance": "<ONE short suggestion if relevant, else null. Soft language, no orders. Example: 'An easy session would help absorb this load.'>"
+}}
+
+Rules:
+- coach_summary: ONE sentence, max 20 words, plain language
+- insight: max 2 sentences, no physiology jargon, factual
+- guidance: ONE suggestion or null if not relevant
+- No motivation, no stars, no markdown
+- If unusually intense: suggest recovery, not performance
+- Calm, coach-like tone"""
+
+MOBILE_ANALYSIS_PROMPT_FR = """Analyse cette seance pour un ecran mobile. Sois extremement concis.
+
+DONNEES DE LA SEANCE:
+{workout_data}
+
+BASELINE (14 derniers jours, meme type):
+{baseline_data}
+
+Reponds UNIQUEMENT dans ce format JSON exact:
+{{
+  "coach_summary": "<UNE phrase, max 20 mots. Langage simple comparant cette seance a la baseline recente. Exemple: 'Seance plus intense et plus longue que ton standard recent.'>",
+  "insight": "<Max 2 phrases courtes. Pas de jargon. Observation calme et factuelle sur cette seance.>",
+  "guidance": "<UNE suggestion courte si pertinent, sinon null. Langage doux, pas d'ordres. Exemple: 'Une seance facile aidera a absorber cette charge.'>"
+}}
+
+Regles:
+- coach_summary: UNE phrase, max 20 mots, langage simple
+- insight: max 2 phrases, pas de jargon physiologique, factuel
+- guidance: UNE suggestion ou null si non pertinent
+- Pas de motivation, pas d'etoiles, pas de markdown
+- Si intensite inhabituelle: suggerer recuperation, pas performance
+- Ton calme, de coach"""
+
+
+class MobileAnalysisResponse(BaseModel):
+    workout_id: str
+    coach_summary: str
+    intensity: dict
+    load: dict
+    comparison: dict
+    insight: Optional[str] = None
+    guidance: Optional[str] = None
+
+
+def calculate_mobile_signals(workout: dict, baseline: dict) -> dict:
+    """Calculate signal cards for mobile workout analysis"""
+    w_type = workout.get("type", "run")
+    
+    # Intensity card
+    intensity = {
+        "pace": None,
+        "pace_label": None,
+        "avg_hr": workout.get("avg_heart_rate"),
+        "label": "normal"
+    }
+    
+    if w_type == "run":
+        pace = workout.get("avg_pace_min_km")
+        if pace:
+            mins = int(pace)
+            secs = int((pace - mins) * 60)
+            intensity["pace"] = f"{mins}:{str(secs).zfill(2)}/km"
+    else:
+        speed = workout.get("avg_speed_kmh")
+        if speed:
+            intensity["pace"] = f"{speed:.1f} km/h"
+    
+    # Compare to baseline
+    if baseline and baseline.get("avg_heart_rate"):
+        hr_diff = (workout.get("avg_heart_rate", 0) - baseline["avg_heart_rate"]) / baseline["avg_heart_rate"] * 100
+        if hr_diff > 5:
+            intensity["label"] = "above_usual"
+        elif hr_diff < -5:
+            intensity["label"] = "below_usual"
+    
+    # Load card
+    distance = workout.get("distance_km", 0)
+    duration = workout.get("duration_minutes", 0)
+    
+    load = {
+        "distance_km": round(distance, 1),
+        "duration_min": duration,
+        "vs_baseline_pct": 0,
+        "direction": "stable"
+    }
+    
+    if baseline and baseline.get("avg_distance_km"):
+        dist_diff = (distance - baseline["avg_distance_km"]) / baseline["avg_distance_km"] * 100
+        load["vs_baseline_pct"] = round(dist_diff)
+        if dist_diff > 10:
+            load["direction"] = "up"
+        elif dist_diff < -10:
+            load["direction"] = "down"
+    
+    # Comparison card
+    comparison = {
+        "pace_delta": None,
+        "hr_delta": None
+    }
+    
+    if baseline:
+        if w_type == "run" and baseline.get("avg_pace") and workout.get("avg_pace_min_km"):
+            pace_diff = workout["avg_pace_min_km"] - baseline["avg_pace"]
+            if abs(pace_diff) > 0.05:
+                sign = "+" if pace_diff > 0 else ""
+                comparison["pace_delta"] = f"{sign}{pace_diff:.2f}/km"
+        
+        if baseline.get("avg_heart_rate") and workout.get("avg_heart_rate"):
+            hr_diff = workout["avg_heart_rate"] - baseline["avg_heart_rate"]
+            if abs(hr_diff) > 2:
+                sign = "+" if hr_diff > 0 else ""
+                comparison["hr_delta"] = f"{sign}{int(hr_diff)} bpm"
+    
+    return {
+        "intensity": intensity,
+        "load": load,
+        "comparison": comparison
+    }
+
+
+@api_router.get("/coach/workout-analysis/{workout_id}")
+async def get_mobile_workout_analysis(workout_id: str, language: str = "en", user_id: str = "default"):
+    """Get mobile-first workout analysis with coach summary and signals"""
+    if not EMERGENT_LLM_KEY:
+        raise HTTPException(status_code=500, detail="LLM key not configured")
+    
+    # Get all workouts
+    all_workouts = await db.workouts.find({}, {"_id": 0}).sort("date", -1).to_list(100)
+    if not all_workouts:
+        all_workouts = get_mock_workouts()
+    
+    # Find the workout
+    workout = await db.workouts.find_one({"id": workout_id}, {"_id": 0})
+    if not workout:
+        workout = next((w for w in all_workouts if w["id"] == workout_id), None)
+    
+    if not workout:
+        raise HTTPException(status_code=404, detail="Workout not found")
+    
+    # Calculate baseline
+    baseline = calculate_baseline_metrics(all_workouts, workout, days=14)
+    
+    # Calculate signal cards
+    signals = calculate_mobile_signals(workout, baseline)
+    
+    # Build workout summary for AI
+    workout_summary = {
+        "type": workout.get("type"),
+        "distance_km": workout.get("distance_km"),
+        "duration_min": workout.get("duration_minutes"),
+        "avg_hr": workout.get("avg_heart_rate"),
+        "avg_pace": workout.get("avg_pace_min_km"),
+        "avg_speed": workout.get("avg_speed_kmh"),
+        "zones": workout.get("effort_zone_distribution")
+    }
+    
+    baseline_summary = {
+        "sessions": baseline.get("workout_count", 0) if baseline else 0,
+        "avg_distance": baseline.get("avg_distance_km") if baseline else None,
+        "avg_duration": baseline.get("avg_duration_min") if baseline else None,
+        "avg_hr": baseline.get("avg_heart_rate") if baseline else None,
+        "avg_pace": baseline.get("avg_pace") if baseline else None
+    } if baseline else {}
+    
+    # Generate AI analysis
+    prompt_template = MOBILE_ANALYSIS_PROMPT_FR if language == "fr" else MOBILE_ANALYSIS_PROMPT_EN
+    prompt = prompt_template.format(
+        workout_data=workout_summary,
+        baseline_data=baseline_summary
+    )
+    
+    coach_summary = ""
+    insight = None
+    guidance = None
+    
+    try:
+        chat = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=f"mobile_analysis_{workout_id}",
+            system_message="You are a concise running/cycling coach. Respond only in valid JSON."
+        ).with_model("openai", "gpt-5.2")
+        
+        response = await chat.send_message(UserMessage(text=prompt))
+        
+        # Parse JSON response
+        response_clean = response.strip()
+        if response_clean.startswith("```json"):
+            response_clean = response_clean[7:]
+        if response_clean.startswith("```"):
+            response_clean = response_clean[3:]
+        if response_clean.endswith("```"):
+            response_clean = response_clean[:-3]
+        
+        import json
+        analysis_data = json.loads(response_clean.strip())
+        coach_summary = analysis_data.get("coach_summary", "")
+        insight = analysis_data.get("insight")
+        guidance = analysis_data.get("guidance")
+        
+    except Exception as e:
+        logger.error(f"Mobile analysis AI error: {e}")
+        coach_summary = "Session analyzed." if language == "en" else "Seance analysee."
+    
+    return MobileAnalysisResponse(
+        workout_id=workout_id,
+        coach_summary=coach_summary,
+        intensity=signals["intensity"],
+        load=signals["load"],
+        comparison=signals["comparison"],
+        insight=insight,
+        guidance=guidance
+    )
+
+
 # ========== GARMIN INTEGRATION ENDPOINTS (DORMANT - NOT USER-FACING) ==========
 
 @api_router.get("/garmin/status")
