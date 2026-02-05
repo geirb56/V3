@@ -283,6 +283,21 @@ export const translations = {
       },
     },
     
+    // Detailed Analysis
+    detailedAnalysis: {
+      title: "Analyse Detaillee",
+      loading: "Analyse en cours...",
+      execution: "Execution",
+      intensity: "Intensite",
+      volume: "Volume",
+      regularity: "Regularite",
+      meaning: "Ce que ca signifie",
+      recovery: "Recuperation",
+      advice: "Conseil Coach",
+      advanced: "Pour aller plus loin",
+      askCoach: "Poser une question au coach",
+    },
+    
     // Coach
     coach: {
       title: "Coach",
