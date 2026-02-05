@@ -160,6 +160,56 @@ CardioCoach is an elite endurance coaching app specialized in running, cycling, 
 - Each card fits on mobile screen
 - 100% EN or 100% FR (no mixing)
 
+### Phase 12 - Conversational Coach Q&A (Feb 5, 2026) ✅
+**Refactored coach chat from report-style to conversational coach-like responses**
+
+**Response Format (Mandatory):**
+1. **Direct Answer** (required)
+   - 1-2 sentences maximum
+   - Directly answers the question
+   - Simple language
+
+2. **Quick Context** (optional)
+   - 1-3 bullet points maximum
+   - Each bullet = one key piece of information
+   - No unnecessary numbers
+
+3. **Coach Tip** (required)
+   - ONE single recommendation
+   - Clear, concrete, immediately actionable
+
+**Strict Style Rules (Forbidden):**
+- NO stars (*, **, ****)
+- NO markdown headers
+- NO numbered lists (1., 2., 3.)
+- NO walls of text
+- NO academic or medical tone
+
+**Tone:**
+- Calm, confident, caring
+- Precise but simple
+- Like a coach speaking in the user's ear
+
+**Golden Rule:**
+If response looks like a report, it is WRONG and must be simplified.
+
+**Language Enforcement:**
+- 100% EN or 100% FR
+- No language mixing allowed
+
+**Backend:**
+- `GET /api/coach/workout-analysis/{workout_id}` - Mobile coach view
+- Returns: coach_summary, intensity, load, session_type, insight, guidance
+- Session type calculated from HR + load + zone distribution
+
+**Design Rules:**
+- Readable in under 10 seconds
+- Feels coached, not analyzed
+- One idea per block
+- Max 2 lines per text block
+- No stars, no heavy markdown
+- White space > density
+
 ### Backend API Endpoints
 - `GET /api/workouts` - List all workouts
 - `GET /api/workouts/{id}` - Workout detail
