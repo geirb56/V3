@@ -79,6 +79,21 @@ export const translations = {
       },
     },
     
+    // Detailed Analysis
+    detailedAnalysis: {
+      title: "Detailed Analysis",
+      loading: "Analyzing...",
+      execution: "Execution",
+      intensity: "Intensity",
+      volume: "Volume",
+      regularity: "Regularity",
+      meaning: "What it means",
+      recovery: "Recovery",
+      advice: "Coach Advice",
+      advanced: "Go further",
+      askCoach: "Ask the coach",
+    },
+    
     // Coach
     coach: {
       title: "Coach",
