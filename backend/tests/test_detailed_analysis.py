@@ -21,12 +21,13 @@ BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
 WORKOUT_ID = "strava_17130033093"
 
 # French words that should NOT appear in English responses
+# Excluding words that are the same in both languages (stable, effort, volume, etc.)
 FRENCH_WORDS = [
     "séance", "sortie", "récupération", "prochaine", "facile", "soutenue", 
-    "modérée", "habituel", "plus long", "pic ponctuel", "stable", "inconnue",
-    "variable", "fréquence", "cardiaque", "allure", "moyenne", "kilomètre",
-    "heures", "minutes", "jours", "semaine", "entraînement", "effort",
-    "intensité", "volume", "régularité", "conseil", "analyse", "détaillée"
+    "modérée", "habituel", "plus long", "pic ponctuel", "inconnue",
+    "fréquence", "cardiaque", "allure", "moyenne", "kilomètre",
+    "heures", "jours", "semaine", "entraînement",
+    "intensité", "régularité", "conseil", "analyse", "détaillée"
 ]
 
 # English words that should NOT appear in French responses
