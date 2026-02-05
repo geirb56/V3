@@ -2072,6 +2072,230 @@ async def get_mobile_workout_analysis(workout_id: str, language: str = "en", use
     )
 
 
+# ========== DETAILED ANALYSIS (CARD-BASED MOBILE) ==========
+
+DETAILED_ANALYSIS_PROMPT_EN = """You are CardioCoach, a mobile-first personal sports coach.
+Transform this workout data into a scannable, reassuring mobile card experience.
+
+WORKOUT DATA:
+{workout_data}
+
+BASELINE (last 14 days, same type):
+{baseline_data}
+
+Respond in this EXACT JSON format only:
+
+{{
+  "header": {{
+    "context": "<1 sentence max. Plain language. Example: 'Sustained outing, noticeably more intense than your recent routine.'>",
+    "session_name": "<Short name for this session>"
+  }},
+  "execution": {{
+    "intensity": "<Easy | Moderate | Sustained>",
+    "volume": "<Usual | Longer | One-off peak>",
+    "regularity": "<Stable | Unknown | Variable>"
+  }},
+  "meaning": {{
+    "text": "<2-3 short sentences. Simple language. Explain the main signal (e.g., zone change, load spike). No jargon.>"
+  }},
+  "recovery": {{
+    "text": "<1 key message only. Neutral tone, not alarmist. Example: 'This session creates higher stress than usual. The next 24-48h matter.'>"
+  }},
+  "advice": {{
+    "text": "<1 clear, actionable recommendation. Never more than one. Example: 'Next session: strict easy, recovery priority.'>"
+  }},
+  "advanced": {{
+    "comparisons": "<Optional: HR/pace deltas vs baseline, zone breakdown, physiological nuances. 2-3 bullet points max.>"
+  }}
+}}
+
+RULES:
+- Short sentences only
+- Clear vocabulary
+- Zero artificial emphasis
+- Zero judgment
+- Zero over-analysis visible by default
+- Each card must fit on mobile screen
+- 100% ENGLISH - no French words"""
+
+DETAILED_ANALYSIS_PROMPT_FR = """Tu es CardioCoach, un coach sportif personnel mobile-first.
+Transforme ces données en une expérience mobile par cartes, scannable et rassurante.
+
+DONNÉES DE LA SÉANCE:
+{workout_data}
+
+BASELINE (14 derniers jours, même type):
+{baseline_data}
+
+Réponds UNIQUEMENT dans ce format JSON exact:
+
+{{
+  "header": {{
+    "context": "<1 phrase max. Langage simple. Exemple: 'Sortie soutenue, nettement plus intense que ta routine récente.'>",
+    "session_name": "<Nom court pour cette séance>"
+  }},
+  "execution": {{
+    "intensity": "<Facile | Modérée | Soutenue>",
+    "volume": "<Habituel | Plus long | Pic ponctuel>",
+    "regularity": "<Stable | Inconnue | Variable>"
+  }},
+  "meaning": {{
+    "text": "<2-3 phrases courtes. Langage simple. Explique le signal principal (ex: changement de zone, pic de charge). Pas de jargon.>"
+  }},
+  "recovery": {{
+    "text": "<1 seul message clé. Ton neutre, non alarmiste. Exemple: 'Cette séance crée un stress plus élevé que d'habitude. Les prochaines 24-48h comptent.'>"
+  }},
+  "advice": {{
+    "text": "<1 recommandation claire et actionnable. Jamais plus d'une. Exemple: 'Prochaine séance : facile stricte, priorité à la récupération.'>"
+  }},
+  "advanced": {{
+    "comparisons": "<Optionnel: écarts FC/allure vs baseline, répartition zones, nuances physiologiques. 2-3 points max.>"
+  }}
+}}
+
+RÈGLES:
+- Phrases courtes uniquement
+- Vocabulaire clair
+- Zéro emphase artificielle
+- Zéro jugement
+- Zéro sur-analyse visible par défaut
+- Chaque carte doit tenir sur écran mobile
+- 100% FRANÇAIS - aucun mot anglais"""
+
+
+class DetailedAnalysisResponse(BaseModel):
+    workout_id: str
+    workout_name: str
+    workout_date: str
+    workout_type: str
+    header: dict
+    execution: dict
+    meaning: dict
+    recovery: dict
+    advice: dict
+    advanced: Optional[dict] = None
+
+
+@api_router.get("/coach/detailed-analysis/{workout_id}")
+async def get_detailed_analysis(workout_id: str, language: str = "en", user_id: str = "default"):
+    """Get card-based detailed analysis for mobile view"""
+    if not EMERGENT_LLM_KEY:
+        raise HTTPException(status_code=500, detail="LLM key not configured")
+    
+    # Get all workouts
+    all_workouts = await db.workouts.find({}, {"_id": 0}).sort("date", -1).to_list(100)
+    if not all_workouts:
+        all_workouts = get_mock_workouts()
+    
+    # Find the workout
+    workout = await db.workouts.find_one({"id": workout_id}, {"_id": 0})
+    if not workout:
+        workout = next((w for w in all_workouts if w["id"] == workout_id), None)
+    
+    if not workout:
+        raise HTTPException(status_code=404, detail="Workout not found")
+    
+    # Calculate baseline
+    baseline = calculate_baseline_metrics(all_workouts, workout, days=14)
+    
+    # Build workout summary
+    workout_summary = {
+        "type": workout.get("type"),
+        "name": workout.get("name"),
+        "date": workout.get("date"),
+        "distance_km": workout.get("distance_km"),
+        "duration_min": workout.get("duration_minutes"),
+        "avg_hr": workout.get("avg_heart_rate"),
+        "max_hr": workout.get("max_heart_rate"),
+        "avg_pace": workout.get("avg_pace_min_km"),
+        "avg_speed": workout.get("avg_speed_kmh"),
+        "elevation": workout.get("elevation_gain_m"),
+        "zones": workout.get("effort_zone_distribution")
+    }
+    
+    baseline_summary = {
+        "sessions": baseline.get("workout_count", 0) if baseline else 0,
+        "avg_distance": baseline.get("avg_distance_km") if baseline else None,
+        "avg_duration": baseline.get("avg_duration_min") if baseline else None,
+        "avg_hr": baseline.get("avg_heart_rate") if baseline else None,
+        "avg_pace": baseline.get("avg_pace") if baseline else None
+    } if baseline else {}
+    
+    # Generate AI analysis
+    prompt_template = DETAILED_ANALYSIS_PROMPT_FR if language == "fr" else DETAILED_ANALYSIS_PROMPT_EN
+    prompt = prompt_template.format(
+        workout_data=workout_summary,
+        baseline_data=baseline_summary
+    )
+    
+    # Default response structure
+    default_header = {
+        "context": "Session analyzed." if language == "en" else "Séance analysée.",
+        "session_name": workout.get("name", "Workout")
+    }
+    default_execution = {
+        "intensity": "Moderate" if language == "en" else "Modérée",
+        "volume": "Usual" if language == "en" else "Habituel",
+        "regularity": "Stable"
+    }
+    default_meaning = {"text": ""}
+    default_recovery = {"text": ""}
+    default_advice = {"text": ""}
+    default_advanced = {"comparisons": ""}
+    
+    try:
+        chat = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=f"detailed_analysis_{workout_id}_{language}",
+            system_message="You are a concise sports coach. Respond only in valid JSON."
+        ).with_model("openai", "gpt-5.2")
+        
+        response = await chat.send_message(UserMessage(text=prompt))
+        
+        # Parse JSON response
+        response_clean = response.strip()
+        if response_clean.startswith("```json"):
+            response_clean = response_clean[7:]
+        if response_clean.startswith("```"):
+            response_clean = response_clean[3:]
+        if response_clean.endswith("```"):
+            response_clean = response_clean[:-3]
+        
+        import json
+        analysis_data = json.loads(response_clean.strip())
+        
+        header = analysis_data.get("header", default_header)
+        execution = analysis_data.get("execution", default_execution)
+        meaning = analysis_data.get("meaning", default_meaning)
+        recovery = analysis_data.get("recovery", default_recovery)
+        advice = analysis_data.get("advice", default_advice)
+        advanced = analysis_data.get("advanced", default_advanced)
+        
+        logger.info(f"Detailed analysis generated for workout {workout_id} in {language}")
+        
+    except Exception as e:
+        logger.error(f"Detailed analysis AI error: {e}")
+        header = default_header
+        execution = default_execution
+        meaning = default_meaning
+        recovery = default_recovery
+        advice = default_advice
+        advanced = default_advanced
+    
+    return DetailedAnalysisResponse(
+        workout_id=workout_id,
+        workout_name=workout.get("name", ""),
+        workout_date=workout.get("date", ""),
+        workout_type=workout.get("type", ""),
+        header=header,
+        execution=execution,
+        meaning=meaning,
+        recovery=recovery,
+        advice=advice,
+        advanced=advanced
+    )
+
+
 # ========== GARMIN INTEGRATION ENDPOINTS (DORMANT - NOT USER-FACING) ==========
 
 @api_router.get("/garmin/status")
