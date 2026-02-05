@@ -69,7 +69,7 @@ export default function WorkoutDetail() {
   };
 
   const goToDeepAnalysis = () => {
-    navigate(`/coach?analyze=${id}`);
+    navigate(`/workout/${id}/analysis`);
   };
 
   const goToAskCoach = () => {
