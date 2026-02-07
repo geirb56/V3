@@ -197,6 +197,47 @@ If response looks like a report, it is WRONG and must be simplified.
 - 100% EN or 100% FR
 - No language mixing allowed
 
+### Phase 13 - Decision Assistant Dashboard (Feb 7, 2026) ✅
+**Redesigned dashboard from data display to decision assistant**
+
+**Philosophy:** CardioCoach is NOT a data dashboard. It's a decision assistant.
+User should always know: "Am I doing too much?", "Am I doing too little?", "What should I do next?"
+
+**Structure (Mobile-first, glanceable in <5 seconds):**
+
+1. **Coach Insight** (top priority, blue highlight)
+   - 1 sentence only, max 15 words
+   - Action-oriented, tells user what to do
+   - Examples: "Low load this week; add an easy session to maintain progress."
+
+2. **This Week** (3 cards)
+   - Sessions: count of workouts
+   - Volume: total km
+   - Load Signal: Low (orange) / Balanced (green) / High (red)
+   - NO HR numbers, NO pace numbers - only interpreted signals
+
+3. **Last 30 Days** (compact summary)
+   - Total volume (km)
+   - Active weeks count
+   - Trend: Up (green ↗) / Stable (gray −) / Down (orange ↘)
+   - NO daily breakdown, NO charts
+
+4. **Recent Workouts** (compact list)
+   - Last 4 workouts
+   - Name, date, distance, duration
+   - Links to workout detail
+
+**Backend:**
+- `GET /api/dashboard/insight` - Returns coach_insight, week stats, month stats
+- Load signal thresholds: >80km=high, >40km=balanced, else=low
+- Trend calculation: >15% change=up/down, else=stable
+
+**Design Rules:**
+- Signal over data: no raw statistics without interpretation
+- No walls of text, no reports
+- If it looks like a training report, it is WRONG
+- Coach tone: calm, human, concise
+
 **Backend:**
 - `GET /api/coach/workout-analysis/{workout_id}` - Mobile coach view
 - Returns: coach_summary, intensity, load, session_type, insight, guidance
