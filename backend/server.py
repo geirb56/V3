@@ -1717,57 +1717,61 @@ class WeeklyDigestResponse(BaseModel):
     generated_at: str
 
 
-DIGEST_PROMPT_EN = """Generate a weekly training digest for this athlete. Be extremely concise.
+DIGEST_PROMPT_EN = """You are a calm running coach giving a weekly summary.
+The user must understand their week in under 5 seconds.
 
-TRAINING DATA (Last 7 days):
-{training_data}
+TRAINING DATA (Last 7 days): {training_data}
+PREVIOUS WEEK: {baseline_data}
 
-BASELINE (Previous 7 days for comparison):
-{baseline_data}
-
-Respond in this EXACT JSON format only, no other text:
+Respond in JSON format only:
 {{
-  "executive_summary": "<ONE short sentence, max 15 words. Neutral verdict on the week. Example: 'Solid aerobic week with balanced load.' or 'Volume slightly down, intensity maintained.'>",
+  "executive_summary": "<ONE sentence, max 15 words. Human, calm, reassuring. No numbers unless needed. Example: 'Quiet week with just one run, makes sense for a restart.'>",
   "insights": [
-    "<insight 1: max 12 words, technical observation>",
-    "<insight 2: max 12 words, technical observation>",
-    "<insight 3: max 12 words, technical observation>"
+    "<Max 2 bullets. Short. Natural language. End with meaning or direction.>",
+    "<Example: 'Body is ready for a second easy outing.'>"
   ]
 }}
 
-Rules:
-- executive_summary: ONE sentence, factual, neutral tone, no motivation
-- insights: exactly 3 items, each max 12 words
-- No alarms, no warnings, no medical terms
-- No motivation ("great job", "keep it up")
-- Calm, technical, coach-like observations only
-- Compare to baseline when relevant"""
+FORBIDDEN:
+- Stars, markdown, numbered lists
+- "baseline", "distribution", "physiological"
+- Numbers that repeat visible metrics
+- Report-style language
 
-DIGEST_PROMPT_FR = """Genere un digest hebdomadaire d'entrainement pour cet athlete. Sois extremement concis.
+REQUIRED:
+- Speak like a real coach
+- Reassure and guide
+- The user should think: "Ok, I understand. I know what to do."
 
-DONNEES D'ENTRAINEMENT (7 derniers jours):
-{training_data}
+100% ENGLISH only."""
 
-BASELINE (7 jours precedents pour comparaison):
-{baseline_data}
+DIGEST_PROMPT_FR = """Tu es un coach running calme qui fait un resume hebdomadaire.
+L'utilisateur doit comprendre sa semaine en moins de 5 secondes.
 
-Reponds UNIQUEMENT dans ce format JSON exact, pas d'autre texte:
+DONNEES (7 derniers jours): {training_data}
+SEMAINE PRECEDENTE: {baseline_data}
+
+Reponds en format JSON uniquement:
 {{
-  "executive_summary": "<UNE phrase courte, max 15 mots. Verdict neutre sur la semaine. Exemple: 'Semaine aerobie solide avec charge equilibree.' ou 'Volume legerement reduit, intensite maintenue.'>",
+  "executive_summary": "<UNE phrase, max 15 mots. Humaine, calme, rassurante. Pas de chiffres sauf si necessaire. Exemple: 'Semaine tranquille avec une seule sortie, coherent pour une reprise.'>",
   "insights": [
-    "<observation 1: max 12 mots, observation technique>",
-    "<observation 2: max 12 mots, observation technique>",
-    "<observation 3: max 12 mots, observation technique>"
+    "<Max 2 puces. Courtes. Langage naturel. Termine avec du sens ou une direction.>",
+    "<Exemple: 'Le corps est pret pour une deuxieme sortie facile.'>"
   ]
 }}
 
-Regles:
-- executive_summary: UNE phrase, factuelle, ton neutre, pas de motivation
-- insights: exactement 3 elements, chacun max 12 mots
-- Pas d'alarmes, pas d'avertissements, pas de termes medicaux
-- Pas de motivation ("bravo", "continue comme ca")
-- Observations calmes, techniques, de coach uniquement
-- Compare a la baseline quand pertinent"""
+INTERDIT:
+- Etoiles, markdown, listes numerotees
+- "baseline", "distribution", "physiologique"
+- Chiffres qui repetent les metriques visibles
+- Langage de rapport
+
+OBLIGATOIRE:
+- Parle comme un vrai coach
+- Rassure et guide
+- L'utilisateur doit se dire: "Ok, je comprends. Je sais quoi faire."
+
+100% FRANCAIS uniquement."""
 
 
 def calculate_digest_metrics(workouts: List[dict], baseline_workouts: List[dict]) -> dict:
