@@ -3,7 +3,7 @@ export const translations = {
     // Navigation
     nav: {
       dashboard: "Dashboard",
-      digest: "Digest",
+      digest: "Review",
       guidance: "Guidance",
       coach: "Coach",
       progress: "Progress",
@@ -171,26 +171,39 @@ export const translations = {
       workouts: "Imported",
     },
     
-    // Weekly Digest
+    // Weekly Review
     digest: {
-      title: "Weekly Digest",
-      generating: "Generating digest...",
+      title: "Weekly Review",
+      generating: "Generating review...",
       noData: "No training data this week.",
       sessions: "Sessions",
       km: "KM",
       hours: "Hours",
-      zoneDistribution: "Effort Distribution",
-      coachInsights: "Coach Notes",
-      deepDive: "View Full Analysis",
+      coachSummary: "Coach Summary",
+      coachReading: "Coach Reading",
+      recommendations: "Recommendations",
+      essentialNumbers: "Essential Numbers",
+      vsLastWeek: "vs last week",
+      askCoach: "Ask the coach",
       signals: {
         load: "Volume",
         intensity: "Intensity",
-        consistency: "Consistency",
+        consistency: "Regularity",
       },
       intensity: {
         hard: "High",
         easy: "Easy",
         balanced: "Balanced",
+      },
+      load: {
+        up: "Up",
+        down: "Down",
+        stable: "Stable",
+      },
+      regularity: {
+        high: "Good",
+        moderate: "Moderate",
+        low: "Low",
       },
     },
     
@@ -216,7 +229,7 @@ export const translations = {
     // Navigation
     nav: {
       dashboard: "Tableau de bord",
-      digest: "Digest",
+      digest: "Bilan",
       guidance: "Recommandations",
       coach: "Coach",
       progress: "Progression",
@@ -384,26 +397,39 @@ export const translations = {
       workouts: "Importees",
     },
     
-    // Weekly Digest
+    // Weekly Review (Bilan de la semaine)
     digest: {
-      title: "Digest Hebdo",
-      generating: "Generation du digest...",
+      title: "Bilan de la semaine",
+      generating: "Generation du bilan...",
       noData: "Aucune donnee cette semaine.",
       sessions: "Seances",
       km: "KM",
       hours: "Heures",
-      zoneDistribution: "Distribution de l'effort",
-      coachInsights: "Notes du Coach",
-      deepDive: "Voir l'analyse complete",
+      coachSummary: "Synthese du coach",
+      coachReading: "Lecture du coach",
+      recommendations: "Preconisations",
+      essentialNumbers: "Chiffres essentiels",
+      vsLastWeek: "vs semaine precedente",
+      askCoach: "Poser une question au coach",
       signals: {
         load: "Volume",
         intensity: "Intensite",
         consistency: "Regularite",
       },
       intensity: {
-        hard: "Elevee",
+        hard: "Soutenue",
         easy: "Legere",
         balanced: "Equilibree",
+      },
+      load: {
+        up: "Hausse",
+        down: "Baisse",
+        stable: "Stable",
+      },
+      regularity: {
+        high: "Bonne",
+        moderate: "Moyenne",
+        low: "Faible",
       },
     },
     

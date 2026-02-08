@@ -1705,73 +1705,87 @@ async def get_latest_guidance(user_id: str = "default"):
     return guidance
 
 
-# ========== WEEKLY DIGEST ENDPOINTS ==========
+# ========== WEEKLY REVIEW (BILAN DE LA SEMAINE) ==========
 
-class WeeklyDigestResponse(BaseModel):
+class WeeklyReviewResponse(BaseModel):
     period_start: str
     period_end: str
-    executive_summary: str
-    metrics: dict
-    signals: List[dict]
-    insights: List[str]
+    coach_summary: str  # 1 phrase max - CARTE 1
+    coach_reading: str  # 2-3 phrases - CARTE 4
+    recommendations: List[str]  # 1-2 actions - CARTE 5
+    metrics: dict  # CARTE 3
+    comparison: dict  # vs semaine precedente
+    signals: List[dict]  # CARTE 2
     generated_at: str
 
 
-DIGEST_PROMPT_EN = """You are a calm running coach giving a weekly summary.
-The user must understand their week in under 5 seconds.
+WEEKLY_REVIEW_PROMPT_EN = """You are a calm, experienced professional coach giving a weekly review.
+The user should understand their week in under 1 minute and know what to do next week.
 
-TRAINING DATA (Last 7 days): {training_data}
-PREVIOUS WEEK: {baseline_data}
+CURRENT WEEK DATA: {training_data}
+PREVIOUS WEEK DATA: {baseline_data}
 
 Respond in JSON format only:
 {{
-  "executive_summary": "<ONE sentence, max 15 words. Human, calm, reassuring. No numbers unless needed. Example: 'Quiet week with just one run, makes sense for a restart.'>",
-  "insights": [
-    "<Max 2 bullets. Short. Natural language. End with meaning or direction.>",
-    "<Example: 'Body is ready for a second easy outing.'>"
+  "coach_summary": "<ONE sentence maximum. Calm, human, expert tone. Example: 'Light but clean week, ideal to restart without creating fatigue.'>",
+  "coach_reading": "<2 to 3 sentences ONLY. Put meaning on the numbers. Say what is GOOD and what to WATCH OUT for. Example: 'Volume is up but concentrated in one outing. Acceptable occasionally, but spread it out if you want progress without fatigue.'>",
+  "recommendations": [
+    "<1 to 2 clear recommendations. ACTION-oriented. Applicable next week. No conditionals, no options. Example: 'Add a 2nd short and easy outing'>",
+    "<Example: 'Keep a relaxed pace, don't chase speed'>"
   ]
 }}
 
-FORBIDDEN:
-- Stars, markdown, numbered lists
-- "baseline", "distribution", "physiological"
-- Numbers that repeat visible metrics
+STRICTLY FORBIDDEN:
+- Stars (*, **, ****)
+- Markdown (##, ###)
+- Numbered lists (1., 2.)
+- Scientific jargon
 - Report-style language
+- Long paragraphs
+- Zones, bpm, or technical terms unless absolutely necessary
 
-REQUIRED:
-- Speak like a real coach
-- Reassure and guide
-- The user should think: "Ok, I understand. I know what to do."
+TONE:
+- Calm
+- Confident
+- Professional
+- Short sentences
+- Like a coach speaking directly to the athlete
 
-100% ENGLISH only."""
+100% ENGLISH only. No French words."""
 
-DIGEST_PROMPT_FR = """Tu es un coach running calme qui fait un resume hebdomadaire.
-L'utilisateur doit comprendre sa semaine en moins de 5 secondes.
+WEEKLY_REVIEW_PROMPT_FR = """Tu es un coach professionnel calme et experimente qui fait un bilan hebdomadaire.
+L'utilisateur doit comprendre sa semaine en moins d'1 minute et savoir quoi faire la semaine prochaine.
 
-DONNEES (7 derniers jours): {training_data}
-SEMAINE PRECEDENTE: {baseline_data}
+DONNEES SEMAINE EN COURS: {training_data}
+DONNEES SEMAINE PRECEDENTE: {baseline_data}
 
 Reponds en format JSON uniquement:
 {{
-  "executive_summary": "<UNE phrase, max 15 mots. Humaine, calme, rassurante. Pas de chiffres sauf si necessaire. Exemple: 'Semaine tranquille avec une seule sortie, coherent pour une reprise.'>",
-  "insights": [
-    "<Max 2 puces. Courtes. Langage naturel. Termine avec du sens ou une direction.>",
-    "<Exemple: 'Le corps est pret pour une deuxieme sortie facile.'>"
+  "coach_summary": "<UNE phrase maximum. Ton calme, humain, expert. Exemple: 'Semaine legere mais propre, ideale pour relancer sans creer de fatigue.'>",
+  "coach_reading": "<2 a 3 phrases UNIQUEMENT. Mets du sens sur les chiffres. Dis ce qui est BIEN et ce qui est A SURVEILLER. Exemple: 'Le volume est en hausse mais concentre sur une seule sortie. Acceptable ponctuellement, mais a lisser si tu veux progresser sans fatigue.'>",
+  "recommendations": [
+    "<1 a 2 recommandations claires. Orientees ACTION. Applicables la semaine prochaine. Pas de conditionnel, pas d'options. Exemple: 'Ajouter une 2e sortie courte et facile'>",
+    "<Exemple: 'Garder l'allure relachee, sans chercher la vitesse'>"
   ]
 }}
 
-INTERDIT:
-- Etoiles, markdown, listes numerotees
-- "baseline", "distribution", "physiologique"
-- Chiffres qui repetent les metriques visibles
+STRICTEMENT INTERDIT:
+- Etoiles (*, **, ****)
+- Markdown (##, ###)
+- Listes numerotees (1., 2.)
+- Jargon scientifique
 - Langage de rapport
+- Paragraphes longs
+- Zones, bpm, ou termes techniques sauf absolument necessaire
 
-OBLIGATOIRE:
-- Parle comme un vrai coach
-- Rassure et guide
-- L'utilisateur doit se dire: "Ok, je comprends. Je sais quoi faire."
+TON:
+- Calme
+- Confiant
+- Professionnel
+- Phrases courtes
+- Comme un coach qui parle directement a l'athlete
 
-100% FRANCAIS uniquement."""
+100% FRANCAIS uniquement. Aucun mot anglais."""
 
 
 def calculate_digest_metrics(workouts: List[dict], baseline_workouts: List[dict]) -> dict:
