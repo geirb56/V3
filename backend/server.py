@@ -1365,6 +1365,9 @@ async def set_user_goal(goal: UserGoalCreate, user_id: str = "default"):
     doc = goal_obj.model_dump()
     await db.user_goals.insert_one(doc)
     
+    # Return without _id
+    doc.pop("_id", None)
+    
     logger.info(f"Goal set for user {user_id}: {goal.event_name} on {goal.event_date}")
     return {"success": True, "goal": doc}
 
