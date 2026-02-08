@@ -2108,10 +2108,41 @@ async def get_weekly_review(user_id: str = "default", language: str = "en"):
     # Generate signals (CARTE 2)
     signals = generate_review_signals(current_week, baseline_week)
     
+    # Get user goal for context
+    user_goal = await db.user_goals.find_one({"user_id": user_id}, {"_id": 0})
+    goal_context = ""
+    if user_goal:
+        try:
+            event_date = datetime.fromisoformat(user_goal["event_date"]).date()
+            days_until = (event_date - today).days
+            if days_until > 0:
+                if language == "fr":
+                    goal_context = f"\nOBJECTIF UTILISATEUR: {user_goal['event_name']} dans {days_until} jours ({user_goal['event_date']}). Adapte tes recommandations en fonction de cette echeance."
+                else:
+                    goal_context = f"\nUSER GOAL: {user_goal['event_name']} in {days_until} days ({user_goal['event_date']}). Adapt your recommendations to this timeline."
+        except (ValueError, TypeError, KeyError):
+            pass
+    
+    # Get previous week's recommendations for follow-up
+    previous_digest = await db.digests.find_one(
+        {"user_id": user_id},
+        {"_id": 0},
+        sort=[("generated_at", -1)]
+    )
+    followup_context = ""
+    previous_recommendations = []
+    if previous_digest and previous_digest.get("recommendations"):
+        previous_recommendations = previous_digest["recommendations"]
+        if language == "fr":
+            followup_context = f"\nRECOMMANDATIONS DE LA SEMAINE DERNIERE: {previous_recommendations}. Compare ce que l'utilisateur a fait cette semaine avec ces conseils."
+        else:
+            followup_context = f"\nLAST WEEK'S RECOMMENDATIONS: {previous_recommendations}. Compare what the user did this week with these suggestions."
+    
     # Generate AI content (CARTE 1, 4, 5)
     coach_summary = ""
     coach_reading = ""
     recommendations = []
+    recommendations_followup = ""
     
     if current_week:
         # Build training data summary for AI
@@ -2140,7 +2171,9 @@ async def get_weekly_review(user_id: str = "default", language: str = "en"):
         prompt_template = WEEKLY_REVIEW_PROMPT_FR if language == "fr" else WEEKLY_REVIEW_PROMPT_EN
         prompt = prompt_template.format(
             training_data=training_summary,
-            baseline_data=baseline_summary
+            baseline_data=baseline_summary,
+            goal_context=goal_context,
+            followup_context=followup_context
         )
         
         try:
@@ -2168,6 +2201,7 @@ async def get_weekly_review(user_id: str = "default", language: str = "en"):
                 coach_summary = review_data.get("coach_summary", "")
                 coach_reading = review_data.get("coach_reading", "")
                 recommendations = review_data.get("recommendations", [])[:2]
+                recommendations_followup = review_data.get("recommendations_followup", "")
             except json.JSONDecodeError:
                 logger.warning(f"Failed to parse review JSON: {response[:200]}")
                 coach_summary = "Training data processed." if language == "en" else "Donnees analysees."
@@ -2192,9 +2226,11 @@ async def get_weekly_review(user_id: str = "default", language: str = "en"):
         "coach_summary": coach_summary,
         "coach_reading": coach_reading,
         "recommendations": recommendations,
+        "recommendations_followup": recommendations_followup,
         "metrics": metrics,
         "comparison": comparison,
         "signals": signals,
+        "user_goal": user_goal,
         "language": language,
         "generated_at": datetime.now(timezone.utc).isoformat()
     })
@@ -2207,9 +2243,11 @@ async def get_weekly_review(user_id: str = "default", language: str = "en"):
         coach_summary=coach_summary,
         coach_reading=coach_reading,
         recommendations=recommendations,
+        recommendations_followup=recommendations_followup,
         metrics=metrics,
         comparison=comparison,
         signals=signals,
+        user_goal=user_goal,
         generated_at=datetime.now(timezone.utc).isoformat()
     )
 
