@@ -1210,6 +1210,170 @@ class DashboardInsightResponse(BaseModel):
     coach_insight: str
     week: dict
     month: dict
+    recovery_score: Optional[dict] = None  # New: recovery score
+
+
+# ========== RECOVERY SCORE CALCULATION ==========
+
+def calculate_recovery_score(workouts: list, language: str = "en") -> dict:
+    """Calculate recovery score based on recent training load, intensity, and rest days"""
+    today = datetime.now(timezone.utc).date()
+    
+    # Get workouts from last 7 days
+    recent_workouts = []
+    for w in workouts:
+        try:
+            w_date = datetime.fromisoformat(w.get("date", "").replace("Z", "+00:00").split("T")[0]).date()
+            if (today - w_date).days <= 7:
+                recent_workouts.append((w, w_date))
+        except (ValueError, TypeError):
+            continue
+    
+    # Get baseline (previous 7-14 days) for comparison
+    baseline_workouts = []
+    for w in workouts:
+        try:
+            w_date = datetime.fromisoformat(w.get("date", "").replace("Z", "+00:00").split("T")[0]).date()
+            days_ago = (today - w_date).days
+            if 7 < days_ago <= 14:
+                baseline_workouts.append(w)
+        except (ValueError, TypeError):
+            continue
+    
+    # Calculate factors
+    # 1. Days since last workout (more rest = higher recovery)
+    if recent_workouts:
+        last_workout_date = max(w_date for _, w_date in recent_workouts)
+        days_since_last = (today - last_workout_date).days
+    else:
+        days_since_last = 7  # No recent workouts = well rested
+    
+    # 2. Load comparison (current vs baseline)
+    current_load = sum(w.get("distance_km", 0) for w, _ in recent_workouts)
+    baseline_load = sum(w.get("distance_km", 0) for w in baseline_workouts)
+    
+    if baseline_load > 0:
+        load_ratio = current_load / baseline_load
+    else:
+        load_ratio = 1.0 if current_load == 0 else 1.5
+    
+    # 3. Intensity (hard sessions in last 3 days)
+    hard_sessions_recent = 0
+    for w, w_date in recent_workouts:
+        if (today - w_date).days <= 3:
+            zones = w.get("effort_zone_distribution", {})
+            if zones:
+                hard_pct = zones.get("z4", 0) + zones.get("z5", 0)
+                if hard_pct >= 25:
+                    hard_sessions_recent += 1
+    
+    # 4. Session spread (better if spread across days)
+    unique_days = len(set(w_date for _, w_date in recent_workouts))
+    
+    # Calculate score (0-100)
+    score = 100
+    
+    # Penalize if workout was today or yesterday
+    if days_since_last == 0:
+        score -= 25
+    elif days_since_last == 1:
+        score -= 15
+    elif days_since_last >= 3:
+        score += 5  # Bonus for extra rest
+    
+    # Penalize high load ratio
+    if load_ratio > 1.3:
+        score -= 20
+    elif load_ratio > 1.15:
+        score -= 10
+    elif load_ratio < 0.7:
+        score += 10  # Low load = more recovery
+    
+    # Penalize hard sessions
+    score -= hard_sessions_recent * 15
+    
+    # Penalize clustered sessions
+    if len(recent_workouts) > 0 and unique_days < len(recent_workouts):
+        score -= 10  # Multiple sessions on same day
+    
+    # Clamp score
+    score = max(20, min(100, score))
+    
+    # Determine status and coach phrase
+    if score >= 75:
+        status = "ready"
+        if language == "fr":
+            phrase = "Corps repose, pret pour une seance intense si tu veux."
+        else:
+            phrase = "Body is rested, ready for an intense session if you want."
+    elif score >= 50:
+        status = "moderate"
+        if language == "fr":
+            phrase = "Recuperation correcte, privilegie une seance facile."
+        else:
+            phrase = "Decent recovery, favor an easy session."
+    else:
+        status = "low"
+        if language == "fr":
+            phrase = "Fatigue accumulee, une journee de repos serait ideale."
+        else:
+            phrase = "Accumulated fatigue, a rest day would be ideal."
+    
+    return {
+        "score": score,
+        "status": status,
+        "phrase": phrase,
+        "days_since_last_workout": days_since_last
+    }
+
+
+# ========== USER GOALS ==========
+
+class UserGoal(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    event_name: str
+    event_date: str  # ISO date string
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+
+class UserGoalCreate(BaseModel):
+    event_name: str
+    event_date: str
+
+
+@api_router.get("/user/goal")
+async def get_user_goal(user_id: str = "default"):
+    """Get user's current goal"""
+    goal = await db.user_goals.find_one({"user_id": user_id}, {"_id": 0})
+    return goal
+
+
+@api_router.post("/user/goal")
+async def set_user_goal(goal: UserGoalCreate, user_id: str = "default"):
+    """Set user's goal (event with date)"""
+    # Delete existing goal
+    await db.user_goals.delete_many({"user_id": user_id})
+    
+    # Create new goal
+    goal_obj = UserGoal(
+        user_id=user_id,
+        event_name=goal.event_name,
+        event_date=goal.event_date
+    )
+    doc = goal_obj.model_dump()
+    await db.user_goals.insert_one(doc)
+    
+    logger.info(f"Goal set for user {user_id}: {goal.event_name} on {goal.event_date}")
+    return {"success": True, "goal": doc}
+
+
+@api_router.delete("/user/goal")
+async def delete_user_goal(user_id: str = "default"):
+    """Delete user's goal"""
+    result = await db.user_goals.delete_many({"user_id": user_id})
+    return {"deleted": result.deleted_count > 0}
 
 
 def calculate_week_stats(workouts: list) -> dict:
