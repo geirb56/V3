@@ -15,7 +15,9 @@ import {
   MessageCircle,
   Loader2,
   RefreshCw,
-  CheckCircle2
+  CheckCircle2,
+  History,
+  Flag
 } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -126,6 +128,15 @@ export default function Digest() {
     return `${hours}h${mins}`;
   };
 
+  const calculateDaysUntil = (dateStr) => {
+    if (!dateStr) return null;
+    const eventDate = new Date(dateStr);
+    const today = new Date();
+    const diffTime = eventDate - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays > 0 ? diffDays : null;
+  };
+
   if (loading) {
     return (
       <div className="p-6 md:p-8 pb-24 md:pb-8 flex items-center justify-center min-h-[60vh]">
@@ -143,6 +154,9 @@ export default function Digest() {
   const comparison = review?.comparison || {};
   const signals = review?.signals || [];
   const recommendations = review?.recommendations || [];
+  const recommendationsFollowup = review?.recommendations_followup;
+  const userGoal = review?.user_goal;
+  const daysUntil = userGoal ? calculateDaysUntil(userGoal.event_date) : null;
 
   return (
     <div className="p-4 md:p-8 pb-24 md:pb-8 max-w-lg mx-auto" data-testid="digest-page">
@@ -167,6 +181,25 @@ export default function Digest() {
           <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
         </Button>
       </div>
+
+      {/* User Goal Context - if exists */}
+      {userGoal && daysUntil && (
+        <Card className="bg-amber-500/5 border-amber-500/20 mb-4">
+          <CardContent className="p-3">
+            <div className="flex items-center gap-3">
+              <Flag className="w-4 h-4 text-amber-400 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="font-mono text-xs text-amber-400">
+                  {t("digest.goalContext")} <span className="font-semibold">{userGoal.event_name}</span>
+                </p>
+                <p className="font-mono text-[10px] text-muted-foreground">
+                  {daysUntil} {lang === "fr" ? "jours" : "days"}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* CARTE 1 - Synthèse du Coach */}
       <Card className="bg-card border-border mb-4">
@@ -235,6 +268,25 @@ export default function Digest() {
           )}
         </CardContent>
       </Card>
+
+      {/* Recommendations Followup - Last week's advice */}
+      {recommendationsFollowup && (
+        <Card className="bg-muted/30 border-border mb-4">
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <History className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground mb-1">
+                  {t("digest.recommendationsFollowup")}
+                </p>
+                <p className="font-mono text-xs text-muted-foreground leading-relaxed" data-testid="recommendations-followup">
+                  {recommendationsFollowup}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* CARTE 4 - Lecture du Coach */}
       {review?.coach_reading && (
