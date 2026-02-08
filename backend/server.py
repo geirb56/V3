@@ -1788,38 +1788,76 @@ TON:
 100% FRANCAIS uniquement. Aucun mot anglais."""
 
 
-def calculate_digest_metrics(workouts: List[dict], baseline_workouts: List[dict]) -> dict:
-    """Calculate visual metrics for weekly digest"""
+def calculate_review_metrics(workouts: List[dict], baseline_workouts: List[dict]) -> tuple:
+    """Calculate metrics and comparison for weekly review"""
     if not workouts:
-        return {
+        metrics = {
             "total_sessions": 0,
             "total_distance_km": 0,
             "total_duration_min": 0,
-            "avg_heart_rate": None,
-            "load_status": "no_data",
-            "intensity_balance": "no_data",
-            "volume_vs_baseline": 0,
-            "consistency_score": 0,
-            "by_type": {}
         }
+        comparison = {
+            "sessions_diff": 0,
+            "distance_diff_km": 0,
+            "distance_diff_pct": 0,
+            "duration_diff_min": 0,
+        }
+        return metrics, comparison
     
     # Current week metrics
     total_distance = sum(w.get("distance_km", 0) for w in workouts)
     total_duration = sum(w.get("duration_minutes", 0) for w in workouts)
-    hr_values = [w.get("avg_heart_rate") for w in workouts if w.get("avg_heart_rate")]
-    avg_hr = round(sum(hr_values) / len(hr_values)) if hr_values else None
     
-    # By type breakdown
-    by_type = {}
-    for w in workouts:
-        t = w.get("type", "other")
-        if t not in by_type:
-            by_type[t] = {"count": 0, "distance_km": 0, "duration_min": 0}
-        by_type[t]["count"] += 1
-        by_type[t]["distance_km"] += w.get("distance_km", 0)
-        by_type[t]["duration_min"] += w.get("duration_minutes", 0)
+    metrics = {
+        "total_sessions": len(workouts),
+        "total_distance_km": round(total_distance, 1),
+        "total_duration_min": total_duration,
+    }
     
-    # Zone distribution aggregate
+    # Baseline comparison
+    baseline_sessions = len(baseline_workouts) if baseline_workouts else 0
+    baseline_distance = sum(w.get("distance_km", 0) for w in baseline_workouts) if baseline_workouts else 0
+    baseline_duration = sum(w.get("duration_minutes", 0) for w in baseline_workouts) if baseline_workouts else 0
+    
+    # Calculate differences
+    distance_diff_pct = 0
+    if baseline_distance > 0:
+        distance_diff_pct = round(((total_distance - baseline_distance) / baseline_distance) * 100)
+    elif total_distance > 0:
+        distance_diff_pct = 100
+    
+    comparison = {
+        "sessions_diff": len(workouts) - baseline_sessions,
+        "distance_diff_km": round(total_distance - baseline_distance, 1),
+        "distance_diff_pct": distance_diff_pct,
+        "duration_diff_min": total_duration - baseline_duration,
+    }
+    
+    return metrics, comparison
+
+
+def generate_review_signals(workouts: List[dict], baseline_workouts: List[dict]) -> List[dict]:
+    """Generate visual signal indicators for weekly review - CARTE 2"""
+    signals = []
+    
+    # Calculate volume change
+    current_km = sum(w.get("distance_km", 0) for w in workouts)
+    baseline_km = sum(w.get("distance_km", 0) for w in baseline_workouts) if baseline_workouts else 0
+    
+    if baseline_km > 0:
+        volume_change = round(((current_km - baseline_km) / baseline_km) * 100)
+    else:
+        volume_change = 100 if current_km > 0 else 0
+    
+    # Volume signal
+    if volume_change > 15:
+        signals.append({"key": "load", "status": "up", "value": f"+{volume_change}%"})
+    elif volume_change < -15:
+        signals.append({"key": "load", "status": "down", "value": f"{volume_change}%"})
+    else:
+        signals.append({"key": "load", "status": "stable", "value": f"{volume_change:+}%" if volume_change != 0 else "="})
+    
+    # Intensity signal based on zone distribution
     zone_totals = {"z1": 0, "z2": 0, "z3": 0, "z4": 0, "z5": 0}
     zone_count = 0
     for w in workouts:
@@ -1830,88 +1868,30 @@ def calculate_digest_metrics(workouts: List[dict], baseline_workouts: List[dict]
                     zone_totals[z] += pct
             zone_count += 1
     
-    avg_zones = {z: round(v / zone_count) for z, v in zone_totals.items()} if zone_count > 0 else None
-    
-    # Baseline comparison
-    baseline_distance = sum(w.get("distance_km", 0) for w in baseline_workouts) if baseline_workouts else 0
-    baseline_duration = sum(w.get("duration_minutes", 0) for w in baseline_workouts) if baseline_workouts else 0
-    
-    # Volume change percentage
-    if baseline_distance > 0:
-        volume_change = round(((total_distance - baseline_distance) / baseline_distance) * 100)
-    else:
-        volume_change = 100 if total_distance > 0 else 0
-    
-    # Load status based on volume change
-    if volume_change > 20:
-        load_status = "elevated"
-    elif volume_change < -20:
-        load_status = "reduced"
-    else:
-        load_status = "stable"
-    
-    # Intensity balance based on zone distribution
-    if avg_zones:
+    if zone_count > 0:
+        avg_zones = {z: v / zone_count for z, v in zone_totals.items()}
         easy_pct = avg_zones.get("z1", 0) + avg_zones.get("z2", 0)
         hard_pct = avg_zones.get("z4", 0) + avg_zones.get("z5", 0)
         
         if easy_pct >= 70:
-            intensity_balance = "aerobic_focused"
+            signals.append({"key": "intensity", "status": "easy", "value": None})
         elif hard_pct >= 30:
-            intensity_balance = "intensity_heavy"
+            signals.append({"key": "intensity", "status": "hard", "value": None})
         else:
-            intensity_balance = "balanced"
-    else:
-        intensity_balance = "unknown"
-    
-    # Consistency score (sessions spread across days)
-    unique_days = len(set(w.get("date", "")[:10] for w in workouts))
-    consistency_score = min(100, round((unique_days / 7) * 100))
-    
-    return {
-        "total_sessions": len(workouts),
-        "total_distance_km": round(total_distance, 1),
-        "total_duration_min": total_duration,
-        "avg_heart_rate": avg_hr,
-        "load_status": load_status,
-        "intensity_balance": intensity_balance,
-        "volume_vs_baseline": volume_change,
-        "consistency_score": consistency_score,
-        "zone_distribution": avg_zones,
-        "by_type": by_type
-    }
-
-
-def generate_digest_signals(metrics: dict) -> List[dict]:
-    """Generate visual signal indicators from metrics"""
-    signals = []
-    
-    # Load signal
-    load_status = metrics.get("load_status", "stable")
-    if load_status == "elevated":
-        signals.append({"key": "load", "status": "up", "value": metrics.get("volume_vs_baseline", 0)})
-    elif load_status == "reduced":
-        signals.append({"key": "load", "status": "down", "value": metrics.get("volume_vs_baseline", 0)})
-    else:
-        signals.append({"key": "load", "status": "stable", "value": metrics.get("volume_vs_baseline", 0)})
-    
-    # Intensity signal
-    intensity = metrics.get("intensity_balance", "balanced")
-    if intensity == "aerobic_focused":
-        signals.append({"key": "intensity", "status": "easy", "value": None})
-    elif intensity == "intensity_heavy":
-        signals.append({"key": "intensity", "status": "hard", "value": None})
+            signals.append({"key": "intensity", "status": "balanced", "value": None})
     else:
         signals.append({"key": "intensity", "status": "balanced", "value": None})
     
-    # Consistency signal
-    consistency = metrics.get("consistency_score", 0)
-    if consistency >= 70:
-        signals.append({"key": "consistency", "status": "high", "value": consistency})
-    elif consistency >= 40:
-        signals.append({"key": "consistency", "status": "moderate", "value": consistency})
+    # Regularity signal (sessions spread across days)
+    unique_days = len(set(w.get("date", "")[:10] for w in workouts))
+    regularity_pct = min(100, round((unique_days / 7) * 100)) if workouts else 0
+    
+    if regularity_pct >= 60:
+        signals.append({"key": "consistency", "status": "high", "value": f"{regularity_pct}%"})
+    elif regularity_pct >= 30:
+        signals.append({"key": "consistency", "status": "moderate", "value": f"{regularity_pct}%"})
     else:
-        signals.append({"key": "consistency", "status": "low", "value": consistency})
+        signals.append({"key": "consistency", "status": "low", "value": f"{regularity_pct}%"})
     
     return signals
 
