@@ -294,7 +294,7 @@ User should always know: "Am I doing too much?", "Am I doing too little?", "What
 
 ### Navigation Structure
 - Dashboard (home)
-- Digest (weekly summary)
+- Bilan / Review (weekly review)
 - Coach (AI chat)
 - Progress (trends)
 - Settings (data sync, language)
