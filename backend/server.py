@@ -1897,8 +1897,8 @@ def generate_review_signals(workouts: List[dict], baseline_workouts: List[dict])
 
 
 @api_router.get("/coach/digest")
-async def get_weekly_digest(user_id: str = "default", language: str = "en"):
-    """Generate weekly training digest with visual metrics and brief AI insights"""
+async def get_weekly_review(user_id: str = "default", language: str = "en"):
+    """Generate weekly training review (Bilan de la semaine) with 6 cards structure"""
     if not EMERGENT_LLM_KEY:
         raise HTTPException(status_code=500, detail="LLM key not configured")
     
@@ -1926,42 +1926,42 @@ async def get_weekly_digest(user_id: str = "default", language: str = "en"):
         except (ValueError, TypeError, KeyError):
             continue
     
-    # Calculate metrics
-    metrics = calculate_digest_metrics(current_week, baseline_week)
-    signals = generate_digest_signals(metrics)
+    # Calculate metrics and comparison (CARTE 3)
+    metrics, comparison = calculate_review_metrics(current_week, baseline_week)
     
-    # Generate AI insights
-    insights = []
-    executive_summary = ""
+    # Generate signals (CARTE 2)
+    signals = generate_review_signals(current_week, baseline_week)
+    
+    # Generate AI content (CARTE 1, 4, 5)
+    coach_summary = ""
+    coach_reading = ""
+    recommendations = []
     
     if current_week:
         # Build training data summary for AI
         training_summary = {
             "sessions": len(current_week),
             "total_km": metrics["total_distance_km"],
-            "total_min": metrics["total_duration_min"],
-            "avg_hr": metrics["avg_heart_rate"],
-            "by_type": metrics["by_type"],
-            "zones": metrics.get("zone_distribution"),
+            "total_hours": round(metrics["total_duration_min"] / 60, 1),
             "workouts": [
                 {
                     "date": w.get("date"),
                     "type": w.get("type"),
                     "distance_km": w.get("distance_km"),
                     "duration_min": w.get("duration_minutes"),
-                    "avg_hr": w.get("avg_heart_rate")
-                } for w in current_week[:7]
+                }
+                for w in current_week[:7]
             ]
         }
         
         baseline_summary = {
             "sessions": len(baseline_week),
             "total_km": round(sum(w.get("distance_km", 0) for w in baseline_week), 1),
-            "total_min": sum(w.get("duration_minutes", 0) for w in baseline_week)
+            "total_hours": round(sum(w.get("duration_minutes", 0) for w in baseline_week) / 60, 1)
         }
         
         # Get appropriate prompt
-        prompt_template = DIGEST_PROMPT_FR if language == "fr" else DIGEST_PROMPT_EN
+        prompt_template = WEEKLY_REVIEW_PROMPT_FR if language == "fr" else WEEKLY_REVIEW_PROMPT_EN
         prompt = prompt_template.format(
             training_data=training_summary,
             baseline_data=baseline_summary
@@ -1970,8 +1970,8 @@ async def get_weekly_digest(user_id: str = "default", language: str = "en"):
         try:
             chat = LlmChat(
                 api_key=EMERGENT_LLM_KEY,
-                session_id=f"digest_{user_id}_{today.isoformat()}",
-                system_message="You are a concise training analyst. Respond only in valid JSON format."
+                session_id=f"review_{user_id}_{today.isoformat()}",
+                system_message="You are a professional coach. Respond only in valid JSON format."
             ).with_model("openai", "gpt-5.2")
             
             response = await chat.send_message(UserMessage(text=prompt))
@@ -1988,44 +1988,52 @@ async def get_weekly_digest(user_id: str = "default", language: str = "en"):
                 if response_clean.endswith("```"):
                     response_clean = response_clean[:-3]
                 
-                digest_data = json.loads(response_clean.strip())
-                executive_summary = digest_data.get("executive_summary", "")
-                insights = digest_data.get("insights", [])[:3]
+                review_data = json.loads(response_clean.strip())
+                coach_summary = review_data.get("coach_summary", "")
+                coach_reading = review_data.get("coach_reading", "")
+                recommendations = review_data.get("recommendations", [])[:2]
             except json.JSONDecodeError:
-                logger.warning(f"Failed to parse digest JSON: {response[:200]}")
-                executive_summary = "Training data processed." if language == "en" else "Donnees analysees."
-                insights = []
+                logger.warning(f"Failed to parse review JSON: {response[:200]}")
+                coach_summary = "Training data processed." if language == "en" else "Donnees analysees."
+                coach_reading = ""
+                recommendations = []
         
         except Exception as e:
-            logger.error(f"Digest AI error: {e}")
-            executive_summary = "Training data processed." if language == "en" else "Donnees analysees."
+            logger.error(f"Weekly review AI error: {e}")
+            coach_summary = "Training data processed." if language == "en" else "Donnees analysees."
     else:
-        executive_summary = "No training data this week." if language == "en" else "Aucune donnee cette semaine."
+        coach_summary = "No training data this week." if language == "en" else "Aucune donnee cette semaine."
+        coach_reading = ""
+        recommendations = []
     
-    # Store digest
-    digest_id = str(uuid.uuid4())
+    # Store review
+    review_id = str(uuid.uuid4())
     await db.digests.insert_one({
-        "id": digest_id,
+        "id": review_id,
         "user_id": user_id,
         "period_start": week_start.isoformat(),
         "period_end": today.isoformat(),
-        "executive_summary": executive_summary,
+        "coach_summary": coach_summary,
+        "coach_reading": coach_reading,
+        "recommendations": recommendations,
         "metrics": metrics,
+        "comparison": comparison,
         "signals": signals,
-        "insights": insights,
         "language": language,
         "generated_at": datetime.now(timezone.utc).isoformat()
     })
     
-    logger.info(f"Weekly digest generated for user {user_id}: {len(current_week)} workouts")
+    logger.info(f"Weekly review generated for user {user_id}: {len(current_week)} workouts")
     
-    return WeeklyDigestResponse(
+    return WeeklyReviewResponse(
         period_start=week_start.isoformat(),
         period_end=today.isoformat(),
-        executive_summary=executive_summary,
+        coach_summary=coach_summary,
+        coach_reading=coach_reading,
+        recommendations=recommendations,
         metrics=metrics,
+        comparison=comparison,
         signals=signals,
-        insights=insights,
         generated_at=datetime.now(timezone.utc).isoformat()
     )
 
