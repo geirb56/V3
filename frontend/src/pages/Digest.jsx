@@ -186,16 +186,28 @@ export default function Digest() {
       {userGoal && daysUntil && (
         <Card className="bg-amber-500/5 border-amber-500/20 mb-4">
           <CardContent className="p-3">
-            <div className="flex items-center gap-3">
-              <Flag className="w-4 h-4 text-amber-400 flex-shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="font-mono text-xs text-amber-400">
-                  {t("digest.goalContext")} <span className="font-semibold">{userGoal.event_name}</span>
-                </p>
-                <p className="font-mono text-[10px] text-muted-foreground">
-                  {daysUntil} {lang === "fr" ? "jours" : "days"}
-                </p>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Flag className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                <div>
+                  <p className="font-mono text-xs text-amber-400 font-semibold">
+                    {userGoal.event_name}
+                  </p>
+                  <p className="font-mono text-[10px] text-muted-foreground">
+                    {userGoal.distance_km}km • {daysUntil} {lang === "fr" ? "jours" : "days"}
+                  </p>
+                </div>
               </div>
+              {userGoal.target_pace && (
+                <div className="text-right">
+                  <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">
+                    {t("settings.targetPace")}
+                  </p>
+                  <p className="font-mono text-sm font-bold text-amber-400">
+                    {userGoal.target_pace}/km
+                  </p>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
