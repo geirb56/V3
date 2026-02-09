@@ -1507,9 +1507,25 @@ def calculate_month_stats(workouts: list) -> dict:
     }
 
 
+# Dashboard insight cache (5 minutes TTL)
+_dashboard_cache = {}
+DASHBOARD_CACHE_TTL = 300  # 5 minutes in seconds
+
+
 @api_router.get("/dashboard/insight")
 async def get_dashboard_insight(language: str = "en", user_id: str = "default"):
     """Get dashboard coach insight with week and month summaries and recovery score"""
+    
+    # Check cache first
+    cache_key = f"{user_id}_{language}"
+    now = datetime.now(timezone.utc).timestamp()
+    
+    if cache_key in _dashboard_cache:
+        cached_data, cached_time = _dashboard_cache[cache_key]
+        if now - cached_time < DASHBOARD_CACHE_TTL:
+            logger.info(f"Dashboard insight cache hit for {cache_key}")
+            return cached_data
+    
     # Get workouts
     all_workouts = await db.workouts.find({}, {"_id": 0}).sort("date", -1).to_list(200)
     if not all_workouts:
@@ -1535,7 +1551,7 @@ async def get_dashboard_insight(language: str = "en", user_id: str = "default"):
         try:
             chat = LlmChat(
                 api_key=EMERGENT_LLM_KEY,
-                session_id=f"dashboard_insight_{user_id}",
+                session_id=f"dashboard_insight_{user_id}_{int(now)}",
                 system_message="You are a concise coach. ONE sentence only."
             ).with_model("openai", "gpt-5.2")
             
@@ -1553,12 +1569,18 @@ async def get_dashboard_insight(language: str = "en", user_id: str = "default"):
     else:
         coach_insight = "Training on track." if language == "en" else "Entrainement en cours."
     
-    return DashboardInsightResponse(
+    result = DashboardInsightResponse(
         coach_insight=coach_insight,
         week=week_stats,
         month=month_stats,
         recovery_score=recovery_score
     )
+    
+    # Store in cache
+    _dashboard_cache[cache_key] = (result, now)
+    logger.info(f"Dashboard insight cached for {cache_key}")
+    
+    return result
 
 
 @api_router.get("/stats")
