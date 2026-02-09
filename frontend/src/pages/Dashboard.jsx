@@ -120,8 +120,18 @@ export default function Dashboard() {
   const [workouts, setWorkouts] = useState([]);
   const [loading, setLoading] = useState(true);
   const { t, lang } = useLanguage();
+  const fetchedRef = useRef(false);
+  const lastLangRef = useRef(lang);
 
   useEffect(() => {
+    // Prevent double fetch on mount (React StrictMode)
+    // Only refetch if language changed
+    if (fetchedRef.current && lastLangRef.current === lang) {
+      return;
+    }
+    
+    fetchedRef.current = true;
+    lastLangRef.current = lang;
     fetchData();
   }, [lang]);
 
