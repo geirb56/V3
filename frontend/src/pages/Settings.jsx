@@ -4,12 +4,22 @@ import axios from "axios";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLanguage } from "@/context/LanguageContext";
-import { Globe, Info, Link2, Loader2, Check, X, RefreshCw, Target, Calendar, Trash2 } from "lucide-react";
+import { Globe, Info, Link2, Loader2, Check, X, RefreshCw, Target, Calendar, Trash2, Clock, Route } from "lucide-react";
 import { toast } from "sonner";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const USER_ID = "default";
+
+const DISTANCE_OPTIONS = ["5k", "10k", "semi", "marathon", "ultra"];
+const DISTANCE_KM = {
+  "5k": 5,
+  "10k": 10,
+  "semi": 21.1,
+  "marathon": 42.195,
+  "ultra": 50
+};
 
 export default function Settings() {
   const { t, lang, setLang } = useLanguage();
@@ -24,6 +34,9 @@ export default function Settings() {
   const [loadingGoal, setLoadingGoal] = useState(true);
   const [eventName, setEventName] = useState("");
   const [eventDate, setEventDate] = useState("");
+  const [distanceType, setDistanceType] = useState("marathon");
+  const [targetHours, setTargetHours] = useState("");
+  const [targetMinutes, setTargetMinutes] = useState("");
   const [savingGoal, setSavingGoal] = useState(false);
 
   useEffect(() => {
@@ -49,6 +62,11 @@ export default function Settings() {
         setGoal(res.data);
         setEventName(res.data.event_name);
         setEventDate(res.data.event_date);
+        setDistanceType(res.data.distance_type || "marathon");
+        if (res.data.target_time_minutes) {
+          setTargetHours(Math.floor(res.data.target_time_minutes / 60).toString());
+          setTargetMinutes((res.data.target_time_minutes % 60).toString().padStart(2, "0"));
+        }
       }
     } catch (error) {
       console.error("Failed to load goal:", error);
@@ -58,16 +76,28 @@ export default function Settings() {
   };
 
   const handleSaveGoal = async () => {
-    if (!eventName.trim() || !eventDate) {
-      toast.error(lang === "fr" ? "Remplis tous les champs" : "Fill all fields");
+    if (!eventName.trim() || !eventDate || !distanceType) {
+      toast.error(lang === "fr" ? "Remplis tous les champs obligatoires" : "Fill all required fields");
       return;
+    }
+    
+    // Calculate target time in minutes
+    let targetTimeMinutes = null;
+    if (targetHours || targetMinutes) {
+      const hours = parseInt(targetHours) || 0;
+      const mins = parseInt(targetMinutes) || 0;
+      if (hours > 0 || mins > 0) {
+        targetTimeMinutes = hours * 60 + mins;
+      }
     }
     
     setSavingGoal(true);
     try {
       const res = await axios.post(`${API}/user/goal?user_id=${USER_ID}`, {
         event_name: eventName.trim(),
-        event_date: eventDate
+        event_date: eventDate,
+        distance_type: distanceType,
+        target_time_minutes: targetTimeMinutes
       });
       setGoal(res.data.goal);
       toast.success(t("settings.goalSaved"));
@@ -85,6 +115,9 @@ export default function Settings() {
       setGoal(null);
       setEventName("");
       setEventDate("");
+      setDistanceType("marathon");
+      setTargetHours("");
+      setTargetMinutes("");
       toast.success(t("settings.goalDeleted"));
     } catch (error) {
       console.error("Failed to delete goal:", error);
@@ -197,6 +230,13 @@ export default function Settings() {
     return diffDays > 0 ? diffDays : null;
   };
 
+  const formatTargetTime = (minutes) => {
+    if (!minutes) return null;
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours}h${mins.toString().padStart(2, "0")}`;
+  };
+
   const daysUntil = goal ? calculateDaysUntil(goal.event_date) : null;
 
   return (
@@ -212,7 +252,7 @@ export default function Settings() {
       </div>
 
       <div className="space-y-6">
-        {/* Training Goal Section - NEW */}
+        {/* Training Goal Section */}
         <Card className="bg-card border-border">
           <CardContent className="p-6">
             <div className="flex items-start gap-4">
@@ -236,7 +276,7 @@ export default function Settings() {
                   <div className="space-y-4">
                     {/* Current Goal Display */}
                     <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center justify-between mb-3">
                         <span className="font-mono text-sm font-semibold text-primary">
                           {goal.event_name}
                         </span>
@@ -249,16 +289,44 @@ export default function Settings() {
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Calendar className="w-4 h-4" />
-                        <span className="font-mono text-xs">
-                          {new Date(goal.event_date).toLocaleDateString(
-                            lang === "fr" ? "fr-FR" : "en-US",
-                            { day: "numeric", month: "long", year: "numeric" }
-                          )}
-                        </span>
+                      
+                      {/* Goal Details Grid */}
+                      <div className="grid grid-cols-2 gap-3 mb-3">
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Route className="w-4 h-4" />
+                          <span className="font-mono text-xs">
+                            {t(`settings.distances.${goal.distance_type}`)} ({goal.distance_km}km)
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Calendar className="w-4 h-4" />
+                          <span className="font-mono text-xs">
+                            {new Date(goal.event_date).toLocaleDateString(
+                              lang === "fr" ? "fr-FR" : "en-US",
+                              { day: "numeric", month: "short", year: "numeric" }
+                            )}
+                          </span>
+                        </div>
+                        {goal.target_time_minutes && (
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <Clock className="w-4 h-4" />
+                            <span className="font-mono text-xs">
+                              {t("settings.targetTime")}: {formatTargetTime(goal.target_time_minutes)}
+                            </span>
+                          </div>
+                        )}
+                        {goal.target_pace && (
+                          <div className="flex items-center gap-2 text-primary">
+                            <Target className="w-4 h-4" />
+                            <span className="font-mono text-xs font-semibold">
+                              {t("settings.targetPace")}: {goal.target_pace}/km
+                            </span>
+                          </div>
+                        )}
                       </div>
-                      <div className="mt-3 pt-3 border-t border-primary/20">
+                      
+                      {/* Days Until */}
+                      <div className="pt-3 border-t border-primary/20">
                         <p className="font-mono text-2xl font-bold text-primary">
                           {daysUntil} <span className="text-sm font-normal">{t("settings.daysUntil")}</span>
                         </p>
@@ -269,9 +337,10 @@ export default function Settings() {
                   <div className="space-y-4">
                     {/* Goal Form */}
                     <div className="space-y-3">
+                      {/* Event Name */}
                       <div>
                         <label className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mb-1 block">
-                          {t("settings.eventName")}
+                          {t("settings.eventName")} *
                         </label>
                         <Input
                           value={eventName}
@@ -281,9 +350,30 @@ export default function Settings() {
                           data-testid="goal-name-input"
                         />
                       </div>
+                      
+                      {/* Distance Type */}
                       <div>
                         <label className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mb-1 block">
-                          {t("settings.eventDate")}
+                          {t("settings.distance")} *
+                        </label>
+                        <Select value={distanceType} onValueChange={setDistanceType}>
+                          <SelectTrigger className="bg-muted border-border font-mono text-sm" data-testid="goal-distance-select">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {DISTANCE_OPTIONS.map((dist) => (
+                              <SelectItem key={dist} value={dist} className="font-mono text-sm">
+                                {t(`settings.distances.${dist}`)} ({DISTANCE_KM[dist]}km)
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      {/* Event Date */}
+                      <div>
+                        <label className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mb-1 block">
+                          {t("settings.eventDate")} *
                         </label>
                         <Input
                           type="date"
@@ -294,10 +384,45 @@ export default function Settings() {
                           data-testid="goal-date-input"
                         />
                       </div>
+                      
+                      {/* Target Time */}
+                      <div>
+                        <label className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mb-1 block">
+                          {t("settings.targetTime")}
+                        </label>
+                        <p className="font-mono text-[9px] text-muted-foreground mb-2">
+                          {t("settings.targetTimeDesc")}
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            min="0"
+                            max="24"
+                            value={targetHours}
+                            onChange={(e) => setTargetHours(e.target.value)}
+                            placeholder="0"
+                            className="bg-muted border-border font-mono text-sm w-20 text-center"
+                            data-testid="goal-hours-input"
+                          />
+                          <span className="font-mono text-sm text-muted-foreground">h</span>
+                          <Input
+                            type="number"
+                            min="0"
+                            max="59"
+                            value={targetMinutes}
+                            onChange={(e) => setTargetMinutes(e.target.value)}
+                            placeholder="00"
+                            className="bg-muted border-border font-mono text-sm w-20 text-center"
+                            data-testid="goal-minutes-input"
+                          />
+                          <span className="font-mono text-sm text-muted-foreground">min</span>
+                        </div>
+                      </div>
                     </div>
+                    
                     <Button
                       onClick={handleSaveGoal}
-                      disabled={savingGoal || !eventName.trim() || !eventDate}
+                      disabled={savingGoal || !eventName.trim() || !eventDate || !distanceType}
                       data-testid="save-goal"
                       className="bg-primary text-white hover:bg-primary/90 rounded-none uppercase font-bold tracking-wider text-xs h-9 px-4 flex items-center gap-2"
                     >
@@ -479,7 +604,7 @@ export default function Settings() {
                   {t("settings.aboutDesc")}
                 </p>
                 <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                  {t("settings.version")} 1.3.0
+                  {t("settings.version")} 1.4.0
                 </p>
               </div>
             </div>
