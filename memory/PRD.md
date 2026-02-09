@@ -320,24 +320,37 @@ User should always know: "Am I doing too much?", "Am I doing too little?", "What
 #### 3. Personal Goal (Event with Date)
 **Purpose:** Allow user to set a target event so coach can adapt recommendations.
 
+**Enhanced Goal Fields:**
+- **Event name:** Text (e.g., "Marathon de Paris")
+- **Distance type:** Selector with 5 options:
+  - 5km (5.0km)
+  - 10km (10.0km)
+  - Semi-marathon (21.1km)
+  - Marathon (42.195km)
+  - Ultra Trail (50.0km default)
+- **Event date:** Calendar picker
+- **Target time:** Optional, hours:minutes format (e.g., 3h45)
+- **Target pace:** Auto-calculated from distance and time (e.g., 5:19/km)
+
 **Display:**
-- Settings page: Training Goal section with event name + date inputs
-- Weekly Review: Goal context card at top (amber) showing event name + days until
+- Settings page: Full goal card with distance, date, target time, and pace
+- Weekly Review: Compact goal card showing event name, distance, days until, and TARGET PACE
 
 **Backend:**
-- New collection: `user_goals`
-- New model: `UserGoal(id, user_id, event_name, event_date, created_at)`
-- New endpoints:
+- Collection: `user_goals`
+- Model: `UserGoal(id, user_id, event_name, event_date, distance_type, distance_km, target_time_minutes, target_pace, created_at)`
+- Helper: `calculate_target_pace(distance_km, target_time_minutes)` → "5:19" format
+- Endpoints:
   - `GET /api/user/goal` - Get user's goal
-  - `POST /api/user/goal` - Set/replace goal
+  - `POST /api/user/goal` - Set/replace goal with pace calculation
   - `DELETE /api/user/goal` - Delete goal
-- Goal context passed to AI prompts with days until calculation
 
 **AI Adaptation:**
-- Coach recommendations adapt to goal timeline
-- Example: "55 jours du marathon, il faut lisser la charge pour progresser sans fatigue"
+- Goal context includes distance and target pace
+- Coach recommendations adapt to timeline AND pace
+- Example: "À 55 jours du marathon avec un objectif de 3h45, tes sorties devraient inclure 20 minutes à l'allure cible (5:19/km)"
 
-**Test Report:** `/app/test_reports/iteration_16.json` (100% pass rate)
+**Test Report:** `/app/test_reports/iteration_17.json` (100% pass rate)
 
 ### Backend API Endpoints
 - `GET /api/workouts` - List all workouts
