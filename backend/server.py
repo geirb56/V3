@@ -2168,10 +2168,24 @@ async def get_weekly_review(user_id: str = "default", language: str = "en"):
             event_date = datetime.fromisoformat(user_goal["event_date"]).date()
             days_until = (event_date - today).days
             if days_until > 0:
+                distance_info = f"{user_goal.get('distance_km', 42.195)}km"
+                target_pace = user_goal.get('target_pace')
+                target_time = user_goal.get('target_time_minutes')
+                
                 if language == "fr":
-                    goal_context = f"\nOBJECTIF UTILISATEUR: {user_goal['event_name']} dans {days_until} jours ({user_goal['event_date']}). Adapte tes recommandations en fonction de cette echeance."
+                    goal_context = f"\nOBJECTIF UTILISATEUR: {user_goal['event_name']} ({distance_info}) dans {days_until} jours."
+                    if target_time and target_pace:
+                        hours = target_time // 60
+                        mins = target_time % 60
+                        goal_context += f" Objectif temps: {hours}h{mins:02d} (allure cible: {target_pace}/km)."
+                    goal_context += " Adapte tes recommandations en fonction de cette echeance et de l'allure cible."
                 else:
-                    goal_context = f"\nUSER GOAL: {user_goal['event_name']} in {days_until} days ({user_goal['event_date']}). Adapt your recommendations to this timeline."
+                    goal_context = f"\nUSER GOAL: {user_goal['event_name']} ({distance_info}) in {days_until} days."
+                    if target_time and target_pace:
+                        hours = target_time // 60
+                        mins = target_time % 60
+                        goal_context += f" Target time: {hours}h{mins:02d} (target pace: {target_pace}/km)."
+                    goal_context += " Adapt your recommendations to this timeline and target pace."
         except (ValueError, TypeError, KeyError):
             pass
     
