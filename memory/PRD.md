@@ -277,6 +277,68 @@ User should always know: "Am I doing too much?", "Am I doing too little?", "What
 - No stars, no heavy markdown
 - White space > density
 
+### Phase 14 - High-Value Features (Feb 9, 2026) ✅
+**3 coach-level features to increase personalization and engagement**
+
+#### 1. Recovery Score (Dashboard Only)
+**Purpose:** Help user decide if they should train hard or rest today.
+
+**Display:** Circular gauge on dashboard
+- Score: 0-100
+- Status: ready (green, ≥75), moderate (amber, 50-74), low (red, <50)
+- Coach phrase: One sentence recommendation
+
+**Calculation factors:**
+- Days since last workout (more rest = higher score)
+- Load ratio vs baseline week
+- Hard sessions in last 3 days
+- Session spread across days
+
+**Backend:**
+- `calculate_recovery_score()` function in server.py
+- Added `recovery_score` field to `/api/dashboard/insight` response
+
+**Frontend:**
+- `RecoveryGauge` component with SVG circular progress
+- Displayed on Dashboard between coach insight and week stats
+
+#### 2. Recommendations Follow-up
+**Purpose:** Track if user followed last week's advice and provide feedback.
+
+**Display:** Card in Weekly Review (Bilan) showing:
+- "Last week's advice" header
+- 1 sentence feedback on whether user followed recommendations
+
+**Implementation:**
+- Fetch previous digest from DB to get last recommendations
+- Pass `followup_context` to AI prompt
+- AI generates `recommendations_followup` field
+
+**Example:**
+- "Tu as bien fait la sortie longue, mais tu n'as pas ajouté la troisième sortie facile comme prévu."
+
+#### 3. Personal Goal (Event with Date)
+**Purpose:** Allow user to set a target event so coach can adapt recommendations.
+
+**Display:**
+- Settings page: Training Goal section with event name + date inputs
+- Weekly Review: Goal context card at top (amber) showing event name + days until
+
+**Backend:**
+- New collection: `user_goals`
+- New model: `UserGoal(id, user_id, event_name, event_date, created_at)`
+- New endpoints:
+  - `GET /api/user/goal` - Get user's goal
+  - `POST /api/user/goal` - Set/replace goal
+  - `DELETE /api/user/goal` - Delete goal
+- Goal context passed to AI prompts with days until calculation
+
+**AI Adaptation:**
+- Coach recommendations adapt to goal timeline
+- Example: "55 jours du marathon, il faut lisser la charge pour progresser sans fatigue"
+
+**Test Report:** `/app/test_reports/iteration_16.json` (100% pass rate)
+
 ### Backend API Endpoints
 - `GET /api/workouts` - List all workouts
 - `GET /api/workouts/{id}` - Workout detail
