@@ -660,13 +660,6 @@ def convert_strava_to_workout(strava_activity: dict, streams_data: dict = None, 
         workout["elevation_gain_m"] = int(elevation)
     
     return workout
-        workout["avg_speed_kmh"] = avg_speed_kmh
-    if calories:
-        workout["calories"] = int(calories)
-    if elevation:
-        workout["elevation_gain_m"] = int(elevation)
-    
-    return workout
 
 
 # ========== CARDIOCOACH SYSTEM PROMPTS ==========
