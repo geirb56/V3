@@ -382,6 +382,140 @@ async def fetch_strava_activities(access_token: str, per_page: int = 100, max_pa
     return all_activities
 
 
+async def fetch_strava_activity_streams(access_token: str, activity_id: str) -> dict:
+    """Fetch detailed streams (HR, pace, cadence) for a specific activity"""
+    streams_data = {}
+    
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            # Fetch HR, velocity, cadence, altitude streams
+            response = await client.get(
+                f"https://www.strava.com/api/v3/activities/{activity_id}/streams",
+                headers={"Authorization": f"Bearer {access_token}"},
+                params={
+                    "keys": "heartrate,velocity_smooth,cadence,altitude,time",
+                    "key_by_type": "true"
+                }
+            )
+            
+            if response.status_code == 200:
+                streams = response.json()
+                streams_data = streams
+            else:
+                logger.warning(f"Failed to fetch streams for activity {activity_id}: {response.status_code}")
+    except Exception as e:
+        logger.warning(f"Error fetching streams for activity {activity_id}: {e}")
+    
+    return streams_data
+
+
+async def fetch_strava_activity_zones(access_token: str, activity_id: str) -> dict:
+    """Fetch heart rate zones distribution for a specific activity"""
+    zones_data = {}
+    
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.get(
+                f"https://www.strava.com/api/v3/activities/{activity_id}/zones",
+                headers={"Authorization": f"Bearer {access_token}"}
+            )
+            
+            if response.status_code == 200:
+                zones = response.json()
+                zones_data = zones
+            else:
+                logger.warning(f"Failed to fetch zones for activity {activity_id}: {response.status_code}")
+    except Exception as e:
+        logger.warning(f"Error fetching zones for activity {activity_id}: {e}")
+    
+    return zones_data
+
+
+def calculate_hr_zones_from_stream(hr_stream: list, max_hr: int = None) -> dict:
+    """Calculate time spent in each HR zone from stream data"""
+    if not hr_stream or not max_hr:
+        return None
+    
+    # Standard 5-zone model based on % of max HR
+    # Z1: 50-60%, Z2: 60-70%, Z3: 70-80%, Z4: 80-90%, Z5: 90-100%
+    zone_thresholds = [
+        (0.50, 0.60, "z1"),
+        (0.60, 0.70, "z2"),
+        (0.70, 0.80, "z3"),
+        (0.80, 0.90, "z4"),
+        (0.90, 1.00, "z5"),
+    ]
+    
+    zone_counts = {"z1": 0, "z2": 0, "z3": 0, "z4": 0, "z5": 0}
+    total_points = len(hr_stream)
+    
+    for hr in hr_stream:
+        if hr is None:
+            continue
+        hr_pct = hr / max_hr
+        
+        for low, high, zone in zone_thresholds:
+            if low <= hr_pct < high:
+                zone_counts[zone] += 1
+                break
+        else:
+            # Above 100% max HR
+            if hr_pct >= 1.0:
+                zone_counts["z5"] += 1
+    
+    # Convert to percentages
+    if total_points > 0:
+        zone_distribution = {
+            zone: round((count / total_points) * 100)
+            for zone, count in zone_counts.items()
+        }
+    else:
+        zone_distribution = {"z1": 0, "z2": 0, "z3": 0, "z4": 0, "z5": 0}
+    
+    return zone_distribution
+
+
+def calculate_pace_stats_from_stream(velocity_stream: list, time_stream: list = None) -> dict:
+    """Calculate detailed pace statistics from velocity stream (for running)"""
+    if not velocity_stream:
+        return None
+    
+    # Filter out zero/null values
+    valid_velocities = [v for v in velocity_stream if v and v > 0]
+    
+    if not valid_velocities:
+        return None
+    
+    # Convert m/s to min/km
+    def ms_to_pace(v):
+        if v <= 0:
+            return None
+        km_per_sec = v / 1000
+        if km_per_sec <= 0:
+            return None
+        return 1 / (km_per_sec * 60)  # min/km
+    
+    paces = [ms_to_pace(v) for v in valid_velocities if ms_to_pace(v)]
+    
+    if not paces:
+        return None
+    
+    avg_pace = sum(paces) / len(paces)
+    min_pace = min(paces)  # Fastest
+    max_pace = max(paces)  # Slowest
+    
+    # Calculate pace variability (standard deviation)
+    variance = sum((p - avg_pace) ** 2 for p in paces) / len(paces)
+    std_dev = variance ** 0.5
+    
+    return {
+        "avg_pace_min_km": round(avg_pace, 2),
+        "best_pace_min_km": round(min_pace, 2),
+        "slowest_pace_min_km": round(max_pace, 2),
+        "pace_variability": round(std_dev, 2)
+    }
+
+
 def convert_strava_to_workout(strava_activity: dict) -> dict:
     """Convert Strava activity to CardioCoach workout format"""
     # Map Strava activity types to our types
