@@ -516,8 +516,8 @@ def calculate_pace_stats_from_stream(velocity_stream: list, time_stream: list = 
     }
 
 
-def convert_strava_to_workout(strava_activity: dict) -> dict:
-    """Convert Strava activity to CardioCoach workout format"""
+def convert_strava_to_workout(strava_activity: dict, streams_data: dict = None, zones_data: dict = None) -> dict:
+    """Convert Strava activity to CardioCoach workout format with detailed HR and pace data"""
     # Map Strava activity types to our types
     activity_type_map = {
         "run": "run",
@@ -539,16 +539,21 @@ def convert_strava_to_workout(strava_activity: dict) -> dict:
     
     # Extract metrics with graceful fallback for missing data
     elapsed_time = strava_activity.get("elapsed_time", 0)  # in seconds
+    moving_time = strava_activity.get("moving_time", elapsed_time)  # in seconds
     distance = strava_activity.get("distance", 0)  # in meters
     avg_hr = strava_activity.get("average_heartrate")
     max_hr = strava_activity.get("max_heartrate")
     elevation = strava_activity.get("total_elevation_gain")
     calories = strava_activity.get("calories")
     avg_speed = strava_activity.get("average_speed", 0)  # in m/s
+    max_speed = strava_activity.get("max_speed", 0)  # in m/s
+    avg_cadence = strava_activity.get("average_cadence")
     
     # Calculate pace (for runs) or speed (for rides)
     avg_pace_min_km = None
+    best_pace_min_km = None
     avg_speed_kmh = None
+    max_speed_kmh = None
     
     if avg_speed and avg_speed > 0:
         if workout_type == "run":
@@ -556,9 +561,16 @@ def convert_strava_to_workout(strava_activity: dict) -> dict:
             speed_km_per_min = (avg_speed * 60) / 1000
             if speed_km_per_min > 0:
                 avg_pace_min_km = round(1 / speed_km_per_min, 2)
+            # Best pace from max speed
+            if max_speed and max_speed > 0:
+                max_speed_km_per_min = (max_speed * 60) / 1000
+                if max_speed_km_per_min > 0:
+                    best_pace_min_km = round(1 / max_speed_km_per_min, 2)
         else:
             # Convert m/s to km/h
             avg_speed_kmh = round(avg_speed * 3.6, 1)
+            if max_speed:
+                max_speed_kmh = round(max_speed * 3.6, 1)
     
     # Parse start time
     start_date = strava_activity.get("start_date_local") or strava_activity.get("start_date")
@@ -578,20 +590,76 @@ def convert_strava_to_workout(strava_activity: dict) -> dict:
         "name": strava_activity.get("name", f"{workout_type.title()} Workout"),
         "date": date_str,
         "duration_minutes": round(elapsed_time / 60) if elapsed_time else 0,
+        "moving_time_minutes": round(moving_time / 60) if moving_time else 0,
         "distance_km": round(distance / 1000, 2) if distance else 0,
         "data_source": "strava",
         "strava_activity_id": str(strava_activity.get("id")),
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     
-    # Add optional fields only if present (graceful handling)
+    # Heart rate data
     if avg_hr:
         workout["avg_heart_rate"] = int(avg_hr)
     if max_hr:
         workout["max_heart_rate"] = int(max_hr)
-    if avg_pace_min_km:
-        workout["avg_pace_min_km"] = avg_pace_min_km
-    if avg_speed_kmh:
+    
+    # Calculate HR zones from streams if available
+    hr_zones = None
+    if streams_data and "heartrate" in streams_data and max_hr:
+        hr_stream = streams_data["heartrate"].get("data", [])
+        if hr_stream:
+            hr_zones = calculate_hr_zones_from_stream(hr_stream, int(max_hr))
+    
+    # Or use Strava's zone data if available
+    if not hr_zones and zones_data:
+        for zone_info in zones_data:
+            if zone_info.get("type") == "heartrate":
+                distribution_buckets = zone_info.get("distribution_buckets", [])
+                if distribution_buckets:
+                    total_time = sum(b.get("time", 0) for b in distribution_buckets)
+                    if total_time > 0:
+                        hr_zones = {}
+                        for i, bucket in enumerate(distribution_buckets[:5]):
+                            zone_key = f"z{i+1}"
+                            hr_zones[zone_key] = round((bucket.get("time", 0) / total_time) * 100)
+    
+    if hr_zones:
+        workout["effort_zone_distribution"] = hr_zones
+    
+    # Pace data (running)
+    if workout_type == "run":
+        if avg_pace_min_km:
+            workout["avg_pace_min_km"] = avg_pace_min_km
+        if best_pace_min_km:
+            workout["best_pace_min_km"] = best_pace_min_km
+        
+        # Detailed pace stats from streams
+        if streams_data and "velocity_smooth" in streams_data:
+            velocity_stream = streams_data["velocity_smooth"].get("data", [])
+            pace_stats = calculate_pace_stats_from_stream(velocity_stream)
+            if pace_stats:
+                workout["pace_stats"] = pace_stats
+        
+        # Cadence (steps per minute, Strava gives half - one foot)
+        if avg_cadence:
+            workout["avg_cadence_spm"] = int(avg_cadence * 2)  # Convert to full steps
+    
+    # Speed data (cycling)
+    if workout_type == "cycle":
+        if avg_speed_kmh:
+            workout["avg_speed_kmh"] = avg_speed_kmh
+        if max_speed_kmh:
+            workout["max_speed_kmh"] = max_speed_kmh
+        if avg_cadence:
+            workout["avg_cadence_rpm"] = int(avg_cadence)
+    
+    # Elevation and calories
+    if calories:
+        workout["calories"] = int(calories)
+    if elevation:
+        workout["elevation_gain_m"] = int(elevation)
+    
+    return workout
         workout["avg_speed_kmh"] = avg_speed_kmh
     if calories:
         workout["calories"] = int(calories)
