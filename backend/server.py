@@ -3259,8 +3259,8 @@ async def strava_callback(code: str, state: str, scope: str = None):
 
 
 @api_router.post("/strava/sync", response_model=StravaSyncResult)
-async def sync_strava_activities(user_id: str = "default"):
-    """Sync activities from Strava"""
+async def sync_strava_activities(user_id: str = "default", fetch_details: bool = True):
+    """Sync activities from Strava with optional detailed HR/pace data"""
     # Get token
     token = await db.strava_tokens.find_one({"user_id": user_id}, {"_id": 0})
     
@@ -3303,8 +3303,24 @@ async def sync_strava_activities(user_id: str = "default"):
         activities = await fetch_strava_activities(access_token, per_page=100)
         
         synced_count = 0
-        for strava_activity in activities:
-            workout = convert_strava_to_workout(strava_activity)
+        detailed_count = 0
+        
+        for idx, strava_activity in enumerate(activities):
+            activity_id = strava_activity.get("id")
+            
+            # Fetch detailed streams for recent activities (first 30)
+            streams_data = None
+            zones_data = None
+            
+            if fetch_details and idx < 30 and activity_id:
+                # Only fetch details for activities with HR data
+                if strava_activity.get("has_heartrate") or strava_activity.get("average_heartrate"):
+                    streams_data = await fetch_strava_activity_streams(access_token, str(activity_id))
+                    zones_data = await fetch_strava_activity_zones(access_token, str(activity_id))
+                    if streams_data or zones_data:
+                        detailed_count += 1
+            
+            workout = convert_strava_to_workout(strava_activity, streams_data, zones_data)
             
             if workout:
                 # Check if already exists
@@ -3312,18 +3328,40 @@ async def sync_strava_activities(user_id: str = "default"):
                 if not existing:
                     await db.workouts.insert_one(workout)
                     synced_count += 1
+                elif streams_data or zones_data:
+                    # Update existing workout with detailed data
+                    update_fields = {}
+                    if workout.get("effort_zone_distribution"):
+                        update_fields["effort_zone_distribution"] = workout["effort_zone_distribution"]
+                    if workout.get("pace_stats"):
+                        update_fields["pace_stats"] = workout["pace_stats"]
+                    if workout.get("best_pace_min_km"):
+                        update_fields["best_pace_min_km"] = workout["best_pace_min_km"]
+                    if workout.get("avg_cadence_spm"):
+                        update_fields["avg_cadence_spm"] = workout["avg_cadence_spm"]
+                    
+                    if update_fields:
+                        await db.workouts.update_one(
+                            {"id": workout["id"]},
+                            {"$set": update_fields}
+                        )
         
         # Record sync history
         await db.sync_history.insert_one({
             "user_id": user_id,
             "synced_at": datetime.now(timezone.utc).isoformat(),
             "synced_count": synced_count,
+            "detailed_count": detailed_count,
             "source": "strava"
         })
         
-        logger.info(f"Strava sync complete: {synced_count} workouts for user {user_id}")
+        logger.info(f"Strava sync complete: {synced_count} new workouts, {detailed_count} with detailed data for user {user_id}")
         
-        return StravaSyncResult(success=True, synced_count=synced_count, message=f"Synced {synced_count} workouts")
+        message = f"Synced {synced_count} workouts"
+        if detailed_count > 0:
+            message += f" ({detailed_count} with detailed HR/pace data)"
+        
+        return StravaSyncResult(success=True, synced_count=synced_count, message=message)
     
     except httpx.HTTPStatusError as e:
         logger.error(f"Strava API error: {e.response.status_code} - {e.response.text}")
