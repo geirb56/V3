@@ -609,15 +609,12 @@ def convert_strava_to_workout(strava_activity: dict, streams_data: dict = None, 
     if max_hr:
         workout["max_heart_rate"] = int(max_hr)
     
-    # Calculate HR zones from streams if available
+    # Calculate HR zones - PRIORITY: Use Strava's zone data first (uses athlete's configured max HR)
+    # Fallback to our calculation if Strava zones not available
     hr_zones = None
-    if streams_data and "heartrate" in streams_data and max_hr:
-        hr_stream = streams_data["heartrate"].get("data", [])
-        if hr_stream:
-            hr_zones = calculate_hr_zones_from_stream(hr_stream, int(max_hr))
     
-    # Or use Strava's zone data if available
-    if not hr_zones and zones_data:
+    # 1. First try Strava's own zone distribution (most accurate, uses athlete settings)
+    if zones_data:
         for zone_info in zones_data:
             if zone_info.get("type") == "heartrate":
                 distribution_buckets = zone_info.get("distribution_buckets", [])
@@ -628,6 +625,17 @@ def convert_strava_to_workout(strava_activity: dict, streams_data: dict = None, 
                         for i, bucket in enumerate(distribution_buckets[:5]):
                             zone_key = f"z{i+1}"
                             hr_zones[zone_key] = round((bucket.get("time", 0) / total_time) * 100)
+                        logger.debug(f"Using Strava zones for {workout.get('name', 'workout')}")
+    
+    # 2. Fallback: Calculate from HR stream using estimated max HR (220 - age, default 185)
+    if not hr_zones and streams_data and "heartrate" in streams_data:
+        hr_stream = streams_data["heartrate"].get("data", [])
+        if hr_stream:
+            # Use athlete's theoretical max HR (not session max!)
+            # Default to 185 bpm if not configured (typical for ~35 year old)
+            athlete_max_hr = 185  # TODO: Get from user settings
+            hr_zones = calculate_hr_zones_from_stream(hr_stream, athlete_max_hr)
+            logger.debug(f"Calculated zones from stream for {workout.get('name', 'workout')}")
     
     if hr_zones:
         workout["effort_zone_distribution"] = hr_zones
