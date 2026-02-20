@@ -35,6 +35,104 @@ const formatDuration = (minutes) => {
   return `${mins}m`;
 };
 
+// Heart Rate Zones Visualization Component
+const HRZonesChart = ({ zones, t }) => {
+  if (!zones) return null;
+  
+  // Zone configuration with colors and labels
+  const zoneConfig = [
+    { key: "z1", color: "#3B82F6", label: "Z1", desc: "recovery" },
+    { key: "z2", color: "#22C55E", label: "Z2", desc: "endurance" },
+    { key: "z3", color: "#EAB308", label: "Z3", desc: "tempo" },
+    { key: "z4", color: "#F97316", label: "Z4", desc: "threshold" },
+    { key: "z5", color: "#EF4444", label: "Z5", desc: "max" },
+  ];
+  
+  // Find max percentage for scaling
+  const maxPct = Math.max(...zoneConfig.map(z => zones[z.key] || 0), 1);
+  
+  return (
+    <div className="space-y-2">
+      {zoneConfig.map((zone) => {
+        const pct = zones[zone.key] || 0;
+        const barWidth = Math.max((pct / maxPct) * 100, pct > 0 ? 8 : 0);
+        
+        return (
+          <div key={zone.key} className="flex items-center gap-2">
+            <span className="font-mono text-[10px] w-6 text-muted-foreground">
+              {zone.label}
+            </span>
+            <div className="flex-1 h-5 bg-muted/30 relative overflow-hidden">
+              <div 
+                className="h-full transition-all duration-500 ease-out flex items-center"
+                style={{ 
+                  width: `${barWidth}%`,
+                  backgroundColor: zone.color,
+                  minWidth: pct > 0 ? "24px" : "0"
+                }}
+              >
+                {pct > 0 && (
+                  <span className="font-mono text-[10px] text-white font-semibold px-1.5 drop-shadow-sm">
+                    {pct}%
+                  </span>
+                )}
+              </div>
+            </div>
+            <span className="font-mono text-[9px] w-16 text-muted-foreground hidden sm:block">
+              {t(`zones.${zone.desc}`)}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+// Zone summary component
+const ZoneSummary = ({ zones, t }) => {
+  if (!zones) return null;
+  
+  const easyPct = (zones.z1 || 0) + (zones.z2 || 0);
+  const moderatePct = zones.z3 || 0;
+  const hardPct = (zones.z4 || 0) + (zones.z5 || 0);
+  
+  // Determine dominant zone type
+  let dominant = "balanced";
+  let dominantColor = "text-chart-3";
+  
+  if (hardPct >= 50) {
+    dominant = "hard";
+    dominantColor = "text-chart-1";
+  } else if (easyPct >= 60) {
+    dominant = "easy";
+    dominantColor = "text-chart-2";
+  }
+  
+  return (
+    <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
+      <div className="flex gap-4">
+        <div className="text-center">
+          <p className="font-mono text-xs font-semibold text-chart-2">{easyPct}%</p>
+          <p className="font-mono text-[8px] text-muted-foreground uppercase">{t("zones.easy")}</p>
+        </div>
+        <div className="text-center">
+          <p className="font-mono text-xs font-semibold text-chart-3">{moderatePct}%</p>
+          <p className="font-mono text-[8px] text-muted-foreground uppercase">{t("zones.moderate")}</p>
+        </div>
+        <div className="text-center">
+          <p className="font-mono text-xs font-semibold text-chart-1">{hardPct}%</p>
+          <p className="font-mono text-[8px] text-muted-foreground uppercase">{t("zones.hard")}</p>
+        </div>
+      </div>
+      <div className={`px-2 py-1 rounded-sm ${dominant === "hard" ? "bg-chart-1/10" : dominant === "easy" ? "bg-chart-2/10" : "bg-chart-3/10"}`}>
+        <p className={`font-mono text-[10px] font-semibold ${dominantColor}`}>
+          {t(`zones.dominant_${dominant}`)}
+        </p>
+      </div>
+    </div>
+  );
+};
+
 export default function WorkoutDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
