@@ -352,6 +352,69 @@ User should always know: "Am I doing too much?", "Am I doing too little?", "What
 
 **Test Report:** `/app/test_reports/iteration_17.json` (100% pass rate)
 
+### Phase 15 - LOCAL ANALYSIS ENGINE MIGRATION (Feb 20, 2026) ✅ CRITICAL
+**Complete removal of cloud LLM dependencies for Strava API compliance**
+
+**Motivation:**
+- 100% Strava API compliance (no raw user data sent to third parties)
+- Eliminate API costs for LLM calls
+- Deterministic, predictable coaching responses
+
+**What Changed:**
+
+1. **New Analysis Engine** (`/app/backend/analysis_engine.py`)
+   - 100% Python, no external dependencies
+   - Template-based text generation with French coach tone
+   - Deterministic logic based on workout metrics
+   - Functions:
+     - `generate_session_analysis()` - Individual workout analysis
+     - `generate_weekly_review()` - Weekly review (Bilan)
+     - `generate_dashboard_insight()` - Dashboard coach insight
+     - `calculate_intensity_level()` - Zone-based intensity detection
+     - `format_duration()`, `format_pace()` - Formatting helpers
+
+2. **Migrated Endpoints (NO LLM):**
+   - `/api/dashboard/insight` - Uses local `generate_dashboard_insight()`
+   - `/api/coach/digest` - Uses local `generate_weekly_review()`
+   - `/api/coach/workout-analysis/{id}` - Uses local `generate_session_analysis()`
+   - `/api/coach/guidance` - Uses local `generate_weekly_review()`
+   - `/api/coach/detailed-analysis/{id}` - Uses local `generate_session_analysis()`
+   - `/api/coach/analyze` - Provides general guidance without LLM
+
+3. **Removed:**
+   - ❌ All `LlmChat` and `EMERGENT_LLM_KEY` references
+   - ❌ All `emergentintegrations` imports
+   - ❌ Cloud LLM API calls
+
+4. **French-First Default:**
+   - Default language changed to "fr" in `LanguageContext.jsx`
+   - All endpoints default to `language="fr"`
+
+5. **Auto-Sync Strava on Startup:**
+   - New hook: `/app/frontend/src/hooks/useAutoSync.js`
+   - Automatically syncs Strava data when app loads (if connected)
+   - Only syncs if last sync was >1 hour ago
+   - Silent failure (doesn't disrupt UX)
+
+**Template Categories:**
+- `SUMMARY_TEMPLATES` - Session summaries (easy/moderate/hard/long/short)
+- `EXECUTION_TEMPLATES` - Execution descriptions with placeholders
+- `MEANING_TEMPLATES` - Interpretation of effort zones
+- `RECOVERY_TEMPLATES` - Recovery recommendations
+- `ADVICE_TEMPLATES` - Actionable coaching tips
+- `WEEKLY_SUMMARY_TEMPLATES` - Weekly review summaries
+- `WEEKLY_READING_TEMPLATES` - Weekly interpretation
+- `WEEKLY_ADVICE_TEMPLATES` - Weekly recommendations
+
+**Benefits:**
+- Zero external API costs
+- Instant response times
+- 100% predictable outputs
+- Full Strava API compliance
+- Works offline (once data is synced)
+
+
+
 ### Backend API Endpoints
 - `GET /api/workouts` - List all workouts
 - `GET /api/workouts/{id}` - Workout detail
