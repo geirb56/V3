@@ -5,8 +5,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/context/LanguageContext";
-import { Globe, Info, Link2, Loader2, Check, X, RefreshCw, Target, Calendar, Trash2, Clock, Route } from "lucide-react";
+import { Globe, Info, Link2, Loader2, Check, X, RefreshCw, Target, Calendar, Trash2, Clock, Route, Crown, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -29,6 +30,11 @@ export default function Settings() {
   const [syncing, setSyncing] = useState(false);
   const [connecting, setConnecting] = useState(false);
   
+  // Premium state
+  const [premiumStatus, setPremiumStatus] = useState(null);
+  const [loadingPremium, setLoadingPremium] = useState(true);
+  const [processingPayment, setProcessingPayment] = useState(false);
+  
   // Goal state
   const [goal, setGoal] = useState(null);
   const [loadingGoal, setLoadingGoal] = useState(true);
@@ -42,18 +48,89 @@ export default function Settings() {
   useEffect(() => {
     loadStravaStatus();
     loadGoal();
+    loadPremiumStatus();
     
     // Handle OAuth callback
     const stravaParam = searchParams.get("strava");
     if (stravaParam === "connected") {
-      toast.success(lang === "fr" ? "Compte connecte" : "Account connected");
+      toast.success(lang === "fr" ? "Compte connecté" : "Account connected");
       setSearchParams({});
       triggerInitialSync();
     } else if (stravaParam === "error") {
       toast.error(lang === "fr" ? "Erreur de connexion" : "Connection failed");
       setSearchParams({});
     }
+    
+    // Handle Stripe callback
+    const sessionId = searchParams.get("session_id");
+    const premiumParam = searchParams.get("premium");
+    
+    if (sessionId && premiumParam === "success") {
+      handlePaymentSuccess(sessionId);
+    } else if (premiumParam === "cancelled") {
+      toast.info(lang === "fr" ? "Paiement annulé" : "Payment cancelled");
+      setSearchParams({});
+    }
   }, [searchParams]);
+
+  const loadPremiumStatus = async () => {
+    try {
+      const res = await axios.get(`${API}/premium/status?user_id=${USER_ID}`);
+      setPremiumStatus(res.data);
+    } catch (error) {
+      console.error("Failed to load premium status:", error);
+    } finally {
+      setLoadingPremium(false);
+    }
+  };
+
+  const handlePaymentSuccess = async (sessionId) => {
+    setProcessingPayment(true);
+    try {
+      // Poll for payment completion
+      let attempts = 0;
+      const maxAttempts = 10;
+      
+      while (attempts < maxAttempts) {
+        const res = await axios.get(`${API}/premium/checkout/status/${sessionId}?user_id=${USER_ID}`);
+        
+        if (res.data.status === "completed" || res.data.payment_status === "paid") {
+          toast.success(lang === "fr" ? "🎉 Premium activé ! Bienvenue dans CardioCoach Pro" : "🎉 Premium activated!");
+          loadPremiumStatus();
+          setSearchParams({});
+          break;
+        } else if (res.data.status === "expired") {
+          toast.error(lang === "fr" ? "Session expirée" : "Session expired");
+          setSearchParams({});
+          break;
+        }
+        
+        await new Promise(r => setTimeout(r, 2000));
+        attempts++;
+      }
+    } catch (error) {
+      console.error("Payment verification error:", error);
+      toast.error(lang === "fr" ? "Erreur de vérification" : "Verification error");
+    } finally {
+      setProcessingPayment(false);
+      setSearchParams({});
+    }
+  };
+
+  const handleSubscribe = async () => {
+    try {
+      const res = await axios.post(`${API}/premium/checkout`, {
+        origin_url: window.location.origin
+      }, {
+        params: { user_id: USER_ID }
+      });
+      
+      window.location.href = res.data.checkout_url;
+    } catch (error) {
+      console.error("Checkout error:", error);
+      toast.error(lang === "fr" ? "Erreur de paiement" : "Payment error");
+    }
+  };
 
   const loadGoal = async () => {
     try {
