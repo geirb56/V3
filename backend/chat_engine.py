@@ -317,8 +317,17 @@ def calculate_training_metrics(workouts: List[dict], user_goal: dict = None) -> 
     
     # Volume variation
     prev_week_start = week_start - timedelta(days=7)
-    prev_workouts = [w for w in workouts if 
-                   prev_week_start <= datetime.fromisoformat(w.get("date", "2000-01-01").replace("Z", "+00:00")) < week_start]
+    prev_workouts = []
+    for w in workouts:
+        try:
+            w_date_str = w.get("date", "2000-01-01").replace("Z", "+00:00")
+            w_date = datetime.fromisoformat(w_date_str)
+            if w_date.tzinfo is None:
+                w_date = w_date.replace(tzinfo=timezone.utc)
+            if prev_week_start <= w_date < week_start:
+                prev_workouts.append(w)
+        except:
+            continue
     prev_km = sum(w.get("distance_km", 0) or 0 for w in prev_workouts)
     if prev_km > 0:
         metrics["variation_volume"] = round((metrics["km_semaine"] - prev_km) / prev_km * 100)
