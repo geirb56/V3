@@ -2025,8 +2025,8 @@ DASHBOARD_CACHE_TTL = 300  # 5 minutes in seconds
 
 
 @api_router.get("/dashboard/insight")
-async def get_dashboard_insight(language: str = "en", user_id: str = "default"):
-    """Get dashboard coach insight with week and month summaries and recovery score"""
+async def get_dashboard_insight(language: str = "fr", user_id: str = "default"):
+    """Get dashboard coach insight with week and month summaries and recovery score - NO LLM"""
     
     # Check cache first
     cache_key = f"{user_id}_{language}"
@@ -2050,36 +2050,13 @@ async def get_dashboard_insight(language: str = "en", user_id: str = "default"):
     # Calculate recovery score
     recovery_score = calculate_recovery_score(all_workouts, language)
     
-    # Generate AI insight
-    coach_insight = ""
-    
-    if EMERGENT_LLM_KEY:
-        prompt_template = DASHBOARD_INSIGHT_PROMPT_FR if language == "fr" else DASHBOARD_INSIGHT_PROMPT_EN
-        prompt = prompt_template.format(
-            week_data=week_stats,
-            month_data=month_stats
-        )
-        
-        try:
-            chat = LlmChat(
-                api_key=EMERGENT_LLM_KEY,
-                session_id=f"dashboard_insight_{user_id}_{int(now)}",
-                system_message="You are a concise coach. ONE sentence only."
-            ).with_model("openai", "gpt-5.2")
-            
-            response = await chat.send_message(UserMessage(text=prompt))
-            coach_insight = response.strip().strip('"').strip("'")
-            
-            # Ensure it's not too long
-            words = coach_insight.split()
-            if len(words) > 18:
-                coach_insight = " ".join(words[:15]) + "."
-                
-        except Exception as e:
-            logger.error(f"Dashboard insight error: {e}")
-            coach_insight = "Training on track." if language == "en" else "Entrainement en cours."
-    else:
-        coach_insight = "Training on track." if language == "en" else "Entrainement en cours."
+    # Generate insight using local engine (NO LLM)
+    coach_insight = generate_dashboard_insight(
+        week_stats=week_stats,
+        month_stats=month_stats,
+        recovery_score=recovery_score.get("score") if recovery_score else None,
+        language=language
+    )
     
     result = DashboardInsightResponse(
         coach_insight=coach_insight,
