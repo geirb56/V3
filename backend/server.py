@@ -15,7 +15,16 @@ from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional, Dict
 import uuid
 from datetime import datetime, timezone, timedelta
-from emergentintegrations.llm.chat import LlmChat, UserMessage
+
+# Import the analysis engine (NO LLM dependencies)
+from analysis_engine import (
+    generate_session_analysis,
+    generate_weekly_review,
+    generate_dashboard_insight,
+    calculate_intensity_level,
+    format_duration,
+    format_pace
+)
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -24,9 +33,6 @@ load_dotenv(ROOT_DIR / '.env')
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
-
-# LLM API Key
-EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY')
 
 # Garmin OAuth Configuration (placeholder - replace with real credentials)
 GARMIN_CLIENT_ID = os.environ.get('GARMIN_CLIENT_ID', '')
