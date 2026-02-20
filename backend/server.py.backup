@@ -16,13 +16,6 @@ from typing import List, Optional, Dict
 import uuid
 from datetime import datetime, timezone, timedelta
 
-# Import local analysis engine (NO LLM dependencies)
-from analysis_engine import (
-    generate_session_analysis,
-    generate_weekly_review,
-    generate_dashboard_insight
-)
-
 # Import the analysis engine (NO LLM dependencies)
 from analysis_engine import (
     generate_session_analysis,
@@ -1514,7 +1507,7 @@ def estimate_vma_from_workouts(workouts: list) -> dict:
     }
 
 
-def calculate_training_zones(vma_kmh: float, language: str = "fr") -> dict:
+def calculate_training_zones(vma_kmh: float, language: str = "en") -> dict:
     """Calculate training zones based on VMA"""
     
     def kmh_to_pace(speed_kmh):
@@ -1557,7 +1550,7 @@ def calculate_training_zones(vma_kmh: float, language: str = "fr") -> dict:
 
 
 @api_router.get("/user/vma-estimate")
-async def get_vma_estimate(user_id: str = "default", language: str = "fr"):
+async def get_vma_estimate(user_id: str = "default", language: str = "en"):
     """Estimate VMA and VO2max from user data"""
     
     # Check if user has a goal (race performance to use)
@@ -1734,7 +1727,7 @@ class DashboardInsightResponse(BaseModel):
 
 # ========== RECOVERY SCORE CALCULATION ==========
 
-def calculate_recovery_score(workouts: list, language: str = "fr") -> dict:
+def calculate_recovery_score(workouts: list, language: str = "en") -> dict:
     """Calculate recovery score based on recent training load, intensity, and rest days"""
     today = datetime.now(timezone.utc).date()
     
@@ -2124,6 +2117,9 @@ async def get_stats():
 @api_router.post("/coach/analyze", response_model=CoachResponse)
 async def analyze_with_coach(request: CoachRequest):
     """Get AI analysis from CardioCoach with persistent memory and contextual comparison"""
+    if not EMERGENT_LLM_KEY:
+        raise HTTPException(status_code=500, detail="LLM key not configured")
+    
     user_id = request.user_id or "default"
     language = request.language or "en"
     
@@ -2279,6 +2275,9 @@ async def get_messages(limit: int = 20):
 @api_router.post("/coach/guidance", response_model=GuidanceResponse)
 async def get_adaptive_guidance(request: GuidanceRequest):
     """Generate adaptive training guidance based on recent workouts"""
+    if not EMERGENT_LLM_KEY:
+        raise HTTPException(status_code=500, detail="LLM key not configured")
+    
     language = request.language or "en"
     user_id = request.user_id or "default"
     
@@ -2625,8 +2624,11 @@ def generate_review_signals(workouts: List[dict], baseline_workouts: List[dict])
 
 
 @api_router.get("/coach/digest")
-async def get_weekly_review(user_id: str = "default", language: str = "fr"):
+async def get_weekly_review(user_id: str = "default", language: str = "en"):
     """Generate weekly training review (Bilan de la semaine) with 6 cards structure"""
+    if not EMERGENT_LLM_KEY:
+        raise HTTPException(status_code=500, detail="LLM key not configured")
+    
     # Get all workouts
     all_workouts = await db.workouts.find({}, {"_id": 0}).sort("date", -1).to_list(200)
     if not all_workouts:
@@ -3011,8 +3013,11 @@ def calculate_mobile_signals(workout: dict, baseline: dict) -> dict:
 
 
 @api_router.get("/coach/workout-analysis/{workout_id}")
-async def get_mobile_workout_analysis(workout_id: str, language: str = "fr", user_id: str = "default"):
+async def get_mobile_workout_analysis(workout_id: str, language: str = "en", user_id: str = "default"):
     """Get mobile-first workout analysis with coach summary and signals"""
+    if not EMERGENT_LLM_KEY:
+        raise HTTPException(status_code=500, detail="LLM key not configured")
+    
     # Get all workouts
     all_workouts = await db.workouts.find({}, {"_id": 0}).sort("date", -1).to_list(100)
     if not all_workouts:
@@ -3218,8 +3223,11 @@ class DetailedAnalysisResponse(BaseModel):
 
 
 @api_router.get("/coach/detailed-analysis/{workout_id}")
-async def get_detailed_analysis(workout_id: str, language: str = "fr", user_id: str = "default"):
+async def get_detailed_analysis(workout_id: str, language: str = "en", user_id: str = "default"):
     """Get card-based detailed analysis for mobile view"""
+    if not EMERGENT_LLM_KEY:
+        raise HTTPException(status_code=500, detail="LLM key not configured")
+    
     # Get all workouts
     all_workouts = await db.workouts.find({}, {"_id": 0}).sort("date", -1).to_list(100)
     if not all_workouts:
