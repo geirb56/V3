@@ -666,6 +666,97 @@ export default function Settings() {
           </CardContent>
         </Card>
 
+        {/* Premium Subscription */}
+        <Card className={`border-border ${premiumStatus?.is_premium ? "bg-gradient-to-br from-amber-500/5 to-orange-500/5 border-amber-500/20" : "bg-card"}`}>
+          <CardContent className="p-6">
+            <div className="flex items-start gap-4">
+              <div className={`w-10 h-10 flex items-center justify-center flex-shrink-0 ${
+                premiumStatus?.is_premium 
+                  ? "bg-gradient-to-br from-amber-500 to-orange-500" 
+                  : "bg-muted border border-border"
+              }`}>
+                <Crown className={`w-5 h-5 ${premiumStatus?.is_premium ? "text-white" : "text-muted-foreground"}`} />
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <h2 className="font-heading text-lg uppercase tracking-tight font-semibold">
+                    CardioCoach Premium
+                  </h2>
+                  {premiumStatus?.is_premium && (
+                    <Badge className="bg-amber-500 text-white text-[9px]">ACTIF</Badge>
+                  )}
+                </div>
+                <p className="font-mono text-xs text-muted-foreground mb-4">
+                  {lang === "fr" 
+                    ? "Chat coach interactif avec analyse personnalisée" 
+                    : "Interactive coach chat with personalized analysis"
+                  }
+                </p>
+                
+                {loadingPremium || processingPayment ? (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span className="font-mono text-xs">
+                      {processingPayment 
+                        ? (lang === "fr" ? "Vérification du paiement..." : "Verifying payment...")
+                        : (lang === "fr" ? "Chargement..." : "Loading...")
+                      }
+                    </span>
+                  </div>
+                ) : premiumStatus?.is_premium ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-4 text-sm">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-amber-500" />
+                        <span className="font-mono text-xs">
+                          {premiumStatus.messages_remaining}/{30} {lang === "fr" ? "messages restants" : "messages left"}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-gradient-to-r from-amber-500 to-orange-500 transition-all"
+                        style={{ width: `${(premiumStatus.messages_remaining / 30) * 100}%` }}
+                      />
+                    </div>
+                    <p className="font-mono text-[10px] text-muted-foreground">
+                      {lang === "fr" 
+                        ? "Les messages se réinitialisent chaque mois" 
+                        : "Messages reset every month"
+                      }
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <ul className="space-y-2">
+                      <li className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Sparkles className="w-3 h-3 text-amber-500" />
+                        {lang === "fr" ? "30 messages/mois avec le coach" : "30 messages/month with coach"}
+                      </li>
+                      <li className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Sparkles className="w-3 h-3 text-amber-500" />
+                        {lang === "fr" ? "Analyse personnalisée de tes données" : "Personalized data analysis"}
+                      </li>
+                      <li className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Sparkles className="w-3 h-3 text-amber-500" />
+                        {lang === "fr" ? "Conseils adaptés à ton profil" : "Advice tailored to your profile"}
+                      </li>
+                    </ul>
+                    <Button
+                      onClick={handleSubscribe}
+                      data-testid="subscribe-premium"
+                      className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-none uppercase font-bold tracking-wider text-xs h-9 px-4 flex items-center gap-2"
+                    >
+                      <Crown className="w-4 h-4" />
+                      {lang === "fr" ? "S'abonner • 4.99€/mois" : "Subscribe • €4.99/month"}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* About */}
         <Card className="bg-card border-border">
           <CardContent className="p-6">
