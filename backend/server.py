@@ -2205,11 +2205,9 @@ async def get_messages(limit: int = 20):
 
 @api_router.post("/coach/guidance", response_model=GuidanceResponse)
 async def get_adaptive_guidance(request: GuidanceRequest):
-    """Generate adaptive training guidance based on recent workouts"""
-    if not EMERGENT_LLM_KEY:
-        raise HTTPException(status_code=500, detail="LLM key not configured")
+    """Generate adaptive training guidance based on recent workouts - 100% LOCAL ENGINE"""
     
-    language = request.language or "en"
+    language = request.language or "fr"
     user_id = request.user_id or "default"
     
     # Get recent workouts (last 14 days)
@@ -2218,7 +2216,6 @@ async def get_adaptive_guidance(request: GuidanceRequest):
         all_workouts = get_mock_workouts()
     
     # Calculate training summary
-    from datetime import timedelta
     today = datetime.now(timezone.utc).date()
     cutoff_14d = today - timedelta(days=14)
     cutoff_7d = today - timedelta(days=7)
@@ -2236,122 +2233,78 @@ async def get_adaptive_guidance(request: GuidanceRequest):
         except (ValueError, TypeError, KeyError):
             continue
     
-    # Build training summary
-    def summarize_workouts(workouts):
-        if not workouts:
-            return {"count": 0, "total_km": 0, "total_min": 0, "by_type": {}}
-        
-        total_km = sum(w.get("distance_km", 0) for w in workouts)
-        total_min = sum(w.get("duration_minutes", 0) for w in workouts)
-        by_type = {}
-        for w in workouts:
-            t = w.get("type", "other")
-            if t not in by_type:
-                by_type[t] = {"count": 0, "km": 0, "min": 0}
-            by_type[t]["count"] += 1
-            by_type[t]["km"] += w.get("distance_km", 0)
-            by_type[t]["min"] += w.get("duration_minutes", 0)
-        
-        return {
-            "count": len(workouts),
-            "total_km": round(total_km, 1),
-            "total_min": total_min,
-            "by_type": by_type
-        }
+    # Use local engine for weekly review
+    review = generate_weekly_review(
+        workouts=recent_7d,
+        previous_week_workouts=[w for w in recent_14d if w not in recent_7d],
+        user_goal=None,
+        language=language
+    )
     
-    summary_14d = summarize_workouts(recent_14d)
-    summary_7d = summarize_workouts(recent_7d)
+    # Determine status from metrics
+    metrics = review.get("metrics", {})
+    volume_change = metrics.get("volume_change_pct", 0)
+    total_sessions = metrics.get("total_sessions", 0)
     
-    # Calculate intensity distribution from zone data
+    # Calculate zone distribution
     zone_totals = {"z1": 0, "z2": 0, "z3": 0, "z4": 0, "z5": 0}
     zone_count = 0
-    for w in recent_14d:
+    for w in recent_7d:
         zones = w.get("effort_zone_distribution", {})
         if zones:
             for z, pct in zones.items():
                 if z in zone_totals:
-                    zone_totals[z] += pct
+                    zone_totals[z] += (pct or 0)
             zone_count += 1
     
+    z4_z5_avg = 0
     if zone_count > 0:
-        avg_zones = {z: round(v / zone_count, 1) for z, v in zone_totals.items()}
+        z4_z5_avg = (zone_totals["z4"] + zone_totals["z5"]) / zone_count
+    
+    # Determine status
+    if total_sessions == 0:
+        status = "hold_steady"
+    elif volume_change > 20 or z4_z5_avg > 35:
+        status = "adjust"  # Need to recover
+    elif volume_change < -20 or total_sessions < 2:
+        status = "hold_steady"  # Build back up
     else:
-        avg_zones = None
+        status = "maintain"
     
-    # Build context for guidance
-    context = f"""TRAINING DATA (Last 14 days):
-- Sessions: {summary_14d['count']}
-- Total distance: {summary_14d['total_km']} km
-- Total time: {summary_14d['total_min']} minutes
-- By type: {summary_14d['by_type']}
-
-LAST 7 DAYS:
-- Sessions: {summary_7d['count']}
-- Total distance: {summary_7d['total_km']} km
-- Total time: {summary_7d['total_min']} minutes
-
-RECENT WORKOUTS (most recent first):
-"""
+    # Build guidance text
+    guidance_parts = [review["summary"]]
+    guidance_parts.append(review["meaning"])
+    guidance_parts.append(review["advice"])
     
-    for w in recent_14d[:7]:
-        context += f"- {w.get('date', 'N/A')}: {w.get('type', 'N/A')} - {w.get('name', 'N/A')}, {w.get('distance_km', 0)}km, {w.get('duration_minutes', 0)}min, HR {w.get('avg_heart_rate', 'N/A')}\n"
+    guidance = "\n\n".join(guidance_parts)
     
-    if avg_zones:
-        context += f"\nAVERAGE ZONE DISTRIBUTION (14d): {avg_zones}"
-    
-    # Get guidance prompt
-    guidance_prompt = ADAPTIVE_GUIDANCE_PROMPT_FR if language == "fr" else ADAPTIVE_GUIDANCE_PROMPT_EN
-    full_message = f"{guidance_prompt}\n\n{context}"
-    
-    try:
-        session_id = f"guidance_{user_id}"
-        system_prompt = get_system_prompt(language)
-        
-        chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=session_id,
-            system_message=system_prompt
-        ).with_model("openai", "gpt-5.2")
-        
-        user_message = UserMessage(text=full_message)
-        response = await chat.send_message(user_message)
-        
-        # Determine status from response
-        response_upper = response.upper()
-        if "MAINTAIN" in response_upper or "MAINTENIR" in response_upper:
-            status = "maintain"
-        elif "ADJUST" in response_upper or "AJUSTER" in response_upper:
-            status = "adjust"
-        elif "HOLD" in response_upper or "CONSOLIDER" in response_upper:
-            status = "hold_steady"
-        else:
-            status = "maintain"  # Default
-        
-        # Store guidance in DB
-        await db.guidance.insert_one({
-            "id": str(uuid.uuid4()),
-            "user_id": user_id,
-            "status": status,
-            "guidance": response,
-            "language": language,
-            "training_summary": {
-                "last_14d": summary_14d,
-                "last_7d": summary_7d
+    # Store guidance in DB
+    await db.guidance.insert_one({
+        "id": str(uuid.uuid4()),
+        "user_id": user_id,
+        "status": status,
+        "guidance": guidance,
+        "language": language,
+        "training_summary": {
+            "last_7d": {
+                "count": len(recent_7d),
+                "total_km": round(sum(w.get("distance_km", 0) for w in recent_7d), 1)
             },
-            "generated_at": datetime.now(timezone.utc).isoformat()
-        })
-        
-        logger.info(f"Guidance generated: status={status}, user={user_id}")
-        
-        return GuidanceResponse(
-            status=status,
-            guidance=response,
-            generated_at=datetime.now(timezone.utc).isoformat()
-        )
+            "last_14d": {
+                "count": len(recent_14d),
+                "total_km": round(sum(w.get("distance_km", 0) for w in recent_14d), 1)
+            }
+        },
+        "generated_at": datetime.now(timezone.utc).isoformat()
+    })
     
-    except Exception as e:
-        logger.error(f"Guidance generation error: {e}")
-        raise HTTPException(status_code=500, detail=f"Guidance generation failed: {str(e)}")
+    logger.info(f"Guidance generated (LOCAL): status={status}, user={user_id}")
+    
+    return GuidanceResponse(
+        status=status,
+        guidance=guidance,
+        generated_at=datetime.now(timezone.utc).isoformat()
+    )
 
 
 @api_router.get("/coach/guidance/latest")
