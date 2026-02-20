@@ -2624,10 +2624,8 @@ def generate_review_signals(workouts: List[dict], baseline_workouts: List[dict])
 
 
 @api_router.get("/coach/digest")
-async def get_weekly_review(user_id: str = "default", language: str = "en"):
-    """Generate weekly training review (Bilan de la semaine) with 6 cards structure"""
-    if not EMERGENT_LLM_KEY:
-        raise HTTPException(status_code=500, detail="LLM key not configured")
+async def get_weekly_review(user_id: str = "default", language: str = "fr"):
+    """Generate weekly training review (Bilan de la semaine) - 100% LOCAL ENGINE, NO LLM"""
     
     # Get all workouts
     all_workouts = await db.workouts.find({}, {"_id": 0}).sort("date", -1).to_list(200)
@@ -2661,154 +2659,19 @@ async def get_weekly_review(user_id: str = "default", language: str = "en"):
     
     # Get user goal for context
     user_goal = await db.user_goals.find_one({"user_id": user_id}, {"_id": 0})
-    goal_context = ""
-    if user_goal:
-        try:
-            event_date = datetime.fromisoformat(user_goal["event_date"]).date()
-            days_until = (event_date - today).days
-            if days_until > 0:
-                distance_info = f"{user_goal.get('distance_km', 42.195)}km"
-                target_pace = user_goal.get('target_pace')
-                target_time = user_goal.get('target_time_minutes')
-                
-                if language == "fr":
-                    goal_context = f"\nOBJECTIF UTILISATEUR: {user_goal['event_name']} ({distance_info}) dans {days_until} jours."
-                    if target_time and target_pace:
-                        hours = target_time // 60
-                        mins = target_time % 60
-                        goal_context += f" Objectif temps: {hours}h{mins:02d} (allure cible: {target_pace}/km)."
-                    goal_context += " Adapte tes recommandations en fonction de cette echeance et de l'allure cible."
-                else:
-                    goal_context = f"\nUSER GOAL: {user_goal['event_name']} ({distance_info}) in {days_until} days."
-                    if target_time and target_pace:
-                        hours = target_time // 60
-                        mins = target_time % 60
-                        goal_context += f" Target time: {hours}h{mins:02d} (target pace: {target_pace}/km)."
-                    goal_context += " Adapt your recommendations to this timeline and target pace."
-        except (ValueError, TypeError, KeyError):
-            pass
     
-    # Get previous week's recommendations for follow-up
-    previous_digest = await db.digests.find_one(
-        {"user_id": user_id},
-        {"_id": 0},
-        sort=[("generated_at", -1)]
+    # Generate review content using LOCAL ENGINE (NO LLM - Strava compliant)
+    review = generate_weekly_review(
+        workouts=current_week,
+        previous_week_workouts=baseline_week,
+        user_goal=user_goal,
+        language=language
     )
-    followup_context = ""
-    previous_recommendations = []
-    if previous_digest and previous_digest.get("recommendations"):
-        previous_recommendations = previous_digest["recommendations"]
-        if language == "fr":
-            followup_context = f"\nRECOMMANDATIONS DE LA SEMAINE DERNIERE: {previous_recommendations}. Compare ce que l'utilisateur a fait cette semaine avec ces conseils."
-        else:
-            followup_context = f"\nLAST WEEK'S RECOMMENDATIONS: {previous_recommendations}. Compare what the user did this week with these suggestions."
     
-    # Generate AI content (CARTE 1, 4, 5)
-    coach_summary = ""
-    coach_reading = ""
-    recommendations = []
-    recommendations_followup = ""
-    
-    if current_week:
-        # Calculate aggregated HR zones for the week
-        weekly_zones = {"z1": 0, "z2": 0, "z3": 0, "z4": 0, "z5": 0}
-        zones_count = 0
-        total_cadence = 0
-        cadence_count = 0
-        
-        for w in current_week:
-            zones = w.get("effort_zone_distribution")
-            if zones:
-                for z in ["z1", "z2", "z3", "z4", "z5"]:
-                    weekly_zones[z] += zones.get(z, 0)
-                zones_count += 1
-            
-            cadence = w.get("avg_cadence_spm")
-            if cadence:
-                total_cadence += cadence
-                cadence_count += 1
-        
-        # Average zones across workouts
-        if zones_count > 0:
-            weekly_zones = {z: round(v / zones_count) for z, v in weekly_zones.items()}
-        
-        avg_cadence = round(total_cadence / cadence_count) if cadence_count > 0 else None
-        
-        # Build training data summary for AI with enriched data
-        training_summary = {
-            "sessions": len(current_week),
-            "total_km": metrics["total_distance_km"],
-            "total_hours": round(metrics["total_duration_min"] / 60, 1),
-            "hr_zones_avg": weekly_zones if zones_count > 0 else None,
-            "avg_cadence_spm": avg_cadence,
-            "workouts": [
-                {
-                    "date": w.get("date"),
-                    "type": w.get("type"),
-                    "distance_km": w.get("distance_km"),
-                    "duration_min": w.get("duration_minutes"),
-                    "hr_zones": w.get("effort_zone_distribution"),
-                    "avg_pace": w.get("avg_pace_min_km"),
-                    "cadence": w.get("avg_cadence_spm")
-                }
-                for w in current_week[:7]
-            ]
-        }
-        
-        baseline_summary = {
-            "sessions": len(baseline_week),
-            "total_km": round(sum(w.get("distance_km", 0) for w in baseline_week), 1),
-            "total_hours": round(sum(w.get("duration_minutes", 0) for w in baseline_week) / 60, 1)
-        }
-        
-        # Get appropriate prompt
-        prompt_template = WEEKLY_REVIEW_PROMPT_FR if language == "fr" else WEEKLY_REVIEW_PROMPT_EN
-        prompt = prompt_template.format(
-            training_data=training_summary,
-            baseline_data=baseline_summary,
-            goal_context=goal_context,
-            followup_context=followup_context
-        )
-        
-        try:
-            chat = LlmChat(
-                api_key=EMERGENT_LLM_KEY,
-                session_id=f"review_{user_id}_{today.isoformat()}",
-                system_message="You are a professional coach. Respond only in valid JSON format."
-            ).with_model("openai", "gpt-5.2")
-            
-            response = await chat.send_message(UserMessage(text=prompt))
-            
-            # Parse JSON response
-            import json
-            try:
-                # Clean response if needed
-                response_clean = response.strip()
-                if response_clean.startswith("```json"):
-                    response_clean = response_clean[7:]
-                if response_clean.startswith("```"):
-                    response_clean = response_clean[3:]
-                if response_clean.endswith("```"):
-                    response_clean = response_clean[:-3]
-                
-                review_data = json.loads(response_clean.strip())
-                coach_summary = review_data.get("coach_summary", "")
-                coach_reading = review_data.get("coach_reading", "")
-                recommendations = review_data.get("recommendations", [])[:2]
-                recommendations_followup = review_data.get("recommendations_followup", "")
-            except json.JSONDecodeError:
-                logger.warning(f"Failed to parse review JSON: {response[:200]}")
-                coach_summary = "Training data processed." if language == "en" else "Donnees analysees."
-                coach_reading = ""
-                recommendations = []
-        
-        except Exception as e:
-            logger.error(f"Weekly review AI error: {e}")
-            coach_summary = "Training data processed." if language == "en" else "Donnees analysees."
-    else:
-        coach_summary = "No training data this week." if language == "en" else "Aucune donnee cette semaine."
-        coach_reading = ""
-        recommendations = []
+    coach_summary = review["summary"]
+    coach_reading = review["meaning"]
+    recommendations = [review["advice"]]
+    recommendations_followup = review.get("recovery", "")
     
     # Store review
     review_id = str(uuid.uuid4())
@@ -2829,7 +2692,7 @@ async def get_weekly_review(user_id: str = "default", language: str = "en"):
         "generated_at": datetime.now(timezone.utc).isoformat()
     })
     
-    logger.info(f"Weekly review generated for user {user_id}: {len(current_week)} workouts")
+    logger.info(f"Weekly review generated for user {user_id}: {len(current_week)} workouts (LOCAL ENGINE)")
     
     return WeeklyReviewResponse(
         period_start=week_start.isoformat(),
