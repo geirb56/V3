@@ -1,14 +1,34 @@
+import { useState, useEffect } from "react";
 import { Outlet, NavLink, useLocation } from "react-router-dom";
-import { Activity, MessageSquare, BarChart3, Home, Settings, Compass, CalendarDays } from "lucide-react";
+import { Activity, MessageSquare, BarChart3, Home, Settings, Compass, CalendarDays, Crown } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { useAutoSync } from "@/hooks/useAutoSync";
+import ChatCoach from "@/components/ChatCoach";
+import axios from "axios";
+
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export const Layout = () => {
   const location = useLocation();
   const { t } = useLanguage();
+  const [chatOpen, setChatOpen] = useState(false);
+  const [isPremium, setIsPremium] = useState(false);
   
   // Auto-sync Strava data on startup
   useAutoSync();
+
+  // Check premium status
+  useEffect(() => {
+    const checkPremium = async () => {
+      try {
+        const res = await axios.get(`${API}/premium/status?user_id=default`);
+        setIsPremium(res.data.is_premium);
+      } catch (err) {
+        console.error("Error checking premium:", err);
+      }
+    };
+    checkPremium();
+  }, []);
 
   const navItems = [
     { path: "/", icon: Home, labelKey: "nav.dashboard" },
@@ -51,7 +71,24 @@ export const Layout = () => {
           ))}
         </nav>
 
-        <div className="pt-6 border-t border-border mt-auto">
+        {/* Chat Coach Button - Desktop */}
+        <button
+          onClick={() => setChatOpen(true)}
+          data-testid="chat-coach-btn-desktop"
+          className={`flex items-center gap-3 px-4 py-3 text-sm font-mono uppercase tracking-wider transition-all mt-2 rounded-lg ${
+            isPremium 
+              ? "bg-gradient-to-r from-amber-500/10 to-orange-500/10 text-amber-600 hover:from-amber-500/20 hover:to-orange-500/20"
+              : "bg-muted/50 text-muted-foreground hover:bg-muted"
+          }`}
+        >
+          <Crown className={`w-4 h-4 ${isPremium ? "text-amber-500" : ""}`} />
+          Chat Coach
+          {isPremium && (
+            <span className="ml-auto text-[8px] bg-amber-500 text-white px-1.5 py-0.5 rounded-full">PRO</span>
+          )}
+        </button>
+
+        <div className="pt-6 border-t border-border mt-4">
           <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
             {t("nav.tagline")}
           </p>
@@ -66,10 +103,23 @@ export const Layout = () => {
             CardioCoach
           </span>
         </div>
+        {/* Chat button mobile header */}
+        <button
+          onClick={() => setChatOpen(true)}
+          data-testid="chat-coach-btn-mobile"
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium ${
+            isPremium 
+              ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white"
+              : "bg-muted text-muted-foreground"
+          }`}
+        >
+          <Crown className="w-3.5 h-3.5" />
+          <span className="hidden xs:inline">Chat</span>
+        </button>
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto pb-20 md:pb-0">
         <Outlet />
       </main>
 
@@ -94,6 +144,13 @@ export const Layout = () => {
           );
         })}
       </nav>
+
+      {/* Chat Coach Overlay */}
+      <ChatCoach 
+        isOpen={chatOpen} 
+        onClose={() => setChatOpen(false)} 
+        userId="default"
+      />
     </div>
   );
 };
