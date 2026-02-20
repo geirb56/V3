@@ -2214,42 +2214,6 @@ async def analyze_with_coach(request: CoachRequest):
         session_id = f"coach_{user_id}"
         system_prompt = get_system_prompt(language)
         
-        chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=session_id,
-            system_message=system_prompt
-        ).with_model("openai", "gpt-5.2")
-        
-        user_message = UserMessage(text=full_message)
-        response = await chat.send_message(user_message)
-        
-        # Store user message in conversation memory
-        user_msg_id = str(uuid.uuid4())
-        await db.conversations.insert_one({
-            "id": user_msg_id,
-            "user_id": user_id,
-            "role": "user",
-            "content": request.message,
-            "workout_id": request.workout_id,
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        })
-        
-        # Store assistant response in conversation memory
-        assistant_msg_id = str(uuid.uuid4())
-        await db.conversations.insert_one({
-            "id": assistant_msg_id,
-            "user_id": user_id,
-            "role": "assistant",
-            "content": response,
-            "workout_id": request.workout_id,
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        })
-        
-        return CoachResponse(response=response, message_id=assistant_msg_id)
-    
-    except Exception as e:
-        logger.error(f"Coach analysis error: {e}")
-        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
 
 
 @api_router.get("/coach/history")
@@ -2377,51 +2341,6 @@ RECENT WORKOUTS (most recent first):
         session_id = f"guidance_{user_id}"
         system_prompt = get_system_prompt(language)
         
-        chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=session_id,
-            system_message=system_prompt
-        ).with_model("openai", "gpt-5.2")
-        
-        user_message = UserMessage(text=full_message)
-        response = await chat.send_message(user_message)
-        
-        # Determine status from response
-        response_upper = response.upper()
-        if "MAINTAIN" in response_upper or "MAINTENIR" in response_upper:
-            status = "maintain"
-        elif "ADJUST" in response_upper or "AJUSTER" in response_upper:
-            status = "adjust"
-        elif "HOLD" in response_upper or "CONSOLIDER" in response_upper:
-            status = "hold_steady"
-        else:
-            status = "maintain"  # Default
-        
-        # Store guidance in DB
-        await db.guidance.insert_one({
-            "id": str(uuid.uuid4()),
-            "user_id": user_id,
-            "status": status,
-            "guidance": response,
-            "language": language,
-            "training_summary": {
-                "last_14d": summary_14d,
-                "last_7d": summary_7d
-            },
-            "generated_at": datetime.now(timezone.utc).isoformat()
-        })
-        
-        logger.info(f"Guidance generated: status={status}, user={user_id}")
-        
-        return GuidanceResponse(
-            status=status,
-            guidance=response,
-            generated_at=datetime.now(timezone.utc).isoformat()
-        )
-    
-    except Exception as e:
-        logger.error(f"Guidance generation error: {e}")
-        raise HTTPException(status_code=500, detail=f"Guidance generation failed: {str(e)}")
 
 
 @api_router.get("/coach/guidance/latest")
@@ -2768,45 +2687,6 @@ async def get_weekly_review(user_id: str = "default", language: str = "fr"):
             followup_context=followup_context
         )
         
-        try:
-            chat = LlmChat(
-                api_key=EMERGENT_LLM_KEY,
-                session_id=f"review_{user_id}_{today.isoformat()}",
-                system_message="You are a professional coach. Respond only in valid JSON format."
-            ).with_model("openai", "gpt-5.2")
-            
-            response = await chat.send_message(UserMessage(text=prompt))
-            
-            # Parse JSON response
-            import json
-            try:
-                # Clean response if needed
-                response_clean = response.strip()
-                if response_clean.startswith("```json"):
-                    response_clean = response_clean[7:]
-                if response_clean.startswith("```"):
-                    response_clean = response_clean[3:]
-                if response_clean.endswith("```"):
-                    response_clean = response_clean[:-3]
-                
-                review_data = json.loads(response_clean.strip())
-                coach_summary = review_data.get("coach_summary", "")
-                coach_reading = review_data.get("coach_reading", "")
-                recommendations = review_data.get("recommendations", [])[:2]
-                recommendations_followup = review_data.get("recommendations_followup", "")
-            except json.JSONDecodeError:
-                logger.warning(f"Failed to parse review JSON: {response[:200]}")
-                coach_summary = "Training data processed." if language == "en" else "Donnees analysees."
-                coach_reading = ""
-                recommendations = []
-        
-        except Exception as e:
-            logger.error(f"Weekly review AI error: {e}")
-            coach_summary = "Training data processed." if language == "en" else "Donnees analysees."
-    else:
-        coach_summary = "No training data this week." if language == "en" else "Aucune donnee cette semaine."
-        coach_reading = ""
-        recommendations = []
     
     # Store review
     review_id = str(uuid.uuid4())
@@ -3070,33 +2950,6 @@ async def get_mobile_workout_analysis(workout_id: str, language: str = "fr", use
     insight = None
     guidance = None
     
-    try:
-        chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=f"mobile_analysis_{workout_id}",
-            system_message="You are a concise running/cycling coach. Respond only in valid JSON."
-        ).with_model("openai", "gpt-5.2")
-        
-        response = await chat.send_message(UserMessage(text=prompt))
-        
-        # Parse JSON response
-        response_clean = response.strip()
-        if response_clean.startswith("```json"):
-            response_clean = response_clean[7:]
-        if response_clean.startswith("```"):
-            response_clean = response_clean[3:]
-        if response_clean.endswith("```"):
-            response_clean = response_clean[:-3]
-        
-        import json
-        analysis_data = json.loads(response_clean.strip())
-        coach_summary = analysis_data.get("coach_summary", "")
-        insight = analysis_data.get("insight")
-        guidance = analysis_data.get("guidance")
-        
-    except Exception as e:
-        logger.error(f"Mobile analysis AI error: {e}")
-        coach_summary = "Session analyzed." if language == "en" else "Seance analysee."
     
     return MobileAnalysisResponse(
         workout_id=workout_id,
@@ -3287,44 +3140,6 @@ async def get_detailed_analysis(workout_id: str, language: str = "fr", user_id: 
     default_advice = {"text": ""}
     default_advanced = {"comparisons": ""}
     
-    try:
-        chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=f"detailed_analysis_{workout_id}_{language}",
-            system_message="You are a concise sports coach. Respond only in valid JSON."
-        ).with_model("openai", "gpt-5.2")
-        
-        response = await chat.send_message(UserMessage(text=prompt))
-        
-        # Parse JSON response
-        response_clean = response.strip()
-        if response_clean.startswith("```json"):
-            response_clean = response_clean[7:]
-        if response_clean.startswith("```"):
-            response_clean = response_clean[3:]
-        if response_clean.endswith("```"):
-            response_clean = response_clean[:-3]
-        
-        import json
-        analysis_data = json.loads(response_clean.strip())
-        
-        header = analysis_data.get("header", default_header)
-        execution = analysis_data.get("execution", default_execution)
-        meaning = analysis_data.get("meaning", default_meaning)
-        recovery = analysis_data.get("recovery", default_recovery)
-        advice = analysis_data.get("advice", default_advice)
-        advanced = analysis_data.get("advanced", default_advanced)
-        
-        logger.info(f"Detailed analysis generated for workout {workout_id} in {language}")
-        
-    except Exception as e:
-        logger.error(f"Detailed analysis AI error: {e}")
-        header = default_header
-        execution = default_execution
-        meaning = default_meaning
-        recovery = default_recovery
-        advice = default_advice
-        advanced = default_advanced
     
     return DetailedAnalysisResponse(
         workout_id=workout_id,
