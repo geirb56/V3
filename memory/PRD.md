@@ -476,10 +476,12 @@ User should always know: "Am I doing too much?", "Am I doing too little?", "What
 - ✅ Strava API integration structure
 - ✅ Weekly Digest + Executive Summary
 - ✅ **LOCAL ANALYSIS ENGINE (Feb 20, 2026)** - CRITICAL MIGRATION COMPLETE
+- ✅ **CHAT COACH PREMIUM (Feb 20, 2026)** - 100% local, Stripe integration
 
 ### P1 - High Priority (Next)
 - Add real Strava API credentials to enable actual workout import
 - Replace mock workout data with synced Strava data
+- Allow user to configure personal max HR in Settings
 
 ### P2 - Medium Priority
 - Recovery score calculation based on training load ✅ (implemented)
