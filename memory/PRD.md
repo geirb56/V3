@@ -420,13 +420,20 @@ User should always know: "Am I doing too much?", "Am I doing too little?", "What
 - `GET /api/workouts/{id}` - Workout detail
 - `POST /api/workouts` - Create workout
 - `GET /api/stats` - Training statistics
-- `POST /api/coach/analyze` - AI analysis
+- `GET /api/dashboard/insight` - Dashboard insight (LOCAL ENGINE)
+- `POST /api/coach/analyze` - General guidance (LOCAL ENGINE)
 - `GET /api/coach/history` - Conversation history
 - `DELETE /api/coach/history` - Clear history
-- `POST /api/coach/guidance` - Adaptive guidance
+- `POST /api/coach/guidance` - Adaptive guidance (LOCAL ENGINE)
 - `GET /api/coach/guidance/latest` - Latest guidance
-- `GET /api/coach/digest` - Weekly digest
+- `GET /api/coach/digest` - Weekly review (LOCAL ENGINE)
 - `GET /api/coach/digest/latest` - Latest digest
+- `GET /api/coach/workout-analysis/{id}` - Mobile workout analysis (LOCAL ENGINE)
+- `GET /api/coach/detailed-analysis/{id}` - Detailed analysis (LOCAL ENGINE)
+- `GET /api/user/vma-estimate` - VMA/VO2max estimation
+- `GET /api/user/goal` - User goal
+- `POST /api/user/goal` - Set user goal
+- `DELETE /api/user/goal` - Delete user goal
 - `GET /api/strava/*` - Strava OAuth endpoints
 - `GET /api/garmin/*` - Dormant Garmin endpoints
 
