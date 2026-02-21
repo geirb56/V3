@@ -396,7 +396,7 @@ ${trainingContext.derniere_seance ? `- Dernière séance: ${trainingContext.dern
                       <p className="text-xs font-medium text-amber-600">Coach IA local disponible</p>
                     </div>
                     <p className="text-[10px] text-muted-foreground mt-0.5">
-                      ~1.3 Go • Wi-Fi recommandé • 100% privé
+                      ~2.7 Go • Wi-Fi recommandé • 100% privé
                     </p>
                   </div>
                   <Button 
