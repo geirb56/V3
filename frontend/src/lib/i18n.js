@@ -288,6 +288,7 @@ export const translations = {
       guidance: "Recommandations",
       coach: "Coach",
       progress: "Progression",
+      subscription: "Abonnement",
       settings: "Parametres",
       tagline: "Analyse Endurance Elite",
     },
