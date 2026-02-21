@@ -3,9 +3,9 @@ import { createContext, useContext, useState, useEffect, useRef, useCallback } f
 // WebLLM Context for global state management
 const WebLLMContext = createContext(null);
 
-// Model configuration - Use 360M model for better stability on mobile/low VRAM devices
-const MODEL_ID = "SmolLM2-360M-Instruct-q4f32_1-MLC";
-const MODEL_SIZE_GB = 0.6;
+// Model configuration - Use smallest model for maximum compatibility on mobile
+const MODEL_ID = "SmolLM2-135M-Instruct-q0f32-MLC";
+const MODEL_SIZE_GB = 0.7;
 
 // LocalStorage keys
 const STORAGE_KEYS = {
