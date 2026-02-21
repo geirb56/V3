@@ -3893,23 +3893,36 @@ async def stripe_webhook(request: Request):
 
 @api_router.post("/chat/send", response_model=ChatResponse)
 async def send_chat_message(request: ChatRequest):
-    """Send a message to the chat coach (premium only, 100% local)"""
+    """Send a message to the chat coach (with tier-based limits)"""
     
     user_id = request.user_id
     
-    # Check premium status
+    # Get subscription status
     subscription = await db.subscriptions.find_one(
-        {"user_id": user_id, "status": "active"},
+        {"user_id": user_id},
         {"_id": 0}
     )
     
-    if not subscription:
-        raise HTTPException(
-            status_code=403,
-            detail="Cette fonctionnalité est réservée aux membres Premium. Abonne-toi pour 4.99€/mois !"
-        )
+    # Determine tier and limits
+    tier = "free"
+    tier_config = SUBSCRIPTION_TIERS["free"]
     
-    # Check message limit
+    if subscription and subscription.get("status") == "active":
+        # Check expiration
+        expires_at = subscription.get("expires_at")
+        if expires_at:
+            try:
+                exp_date = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+                if exp_date >= datetime.now(timezone.utc):
+                    tier = subscription.get("tier", "starter")
+                    tier_config = SUBSCRIPTION_TIERS.get(tier, SUBSCRIPTION_TIERS["starter"])
+            except:
+                pass
+    
+    messages_limit = tier_config.get("messages_limit", 10)
+    is_unlimited = tier_config.get("unlimited", False)
+    
+    # Get message count for current month
     now = datetime.now(timezone.utc)
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     
@@ -3919,9 +3932,16 @@ async def send_chat_message(request: ChatRequest):
         "timestamp": {"$gte": month_start.isoformat()}
     })
     
-    can_send, limit_message = check_message_limit(message_count, MAX_MESSAGES_PER_MONTH)
-    if not can_send:
-        raise HTTPException(status_code=429, detail=limit_message)
+    # Check limit (soft limit for unlimited tier)
+    if message_count >= messages_limit:
+        if is_unlimited and message_count < 200:  # Hard cap for fair-use
+            pass  # Allow but warn
+        else:
+            tier_name = tier_config.get("name", "Gratuit")
+            raise HTTPException(
+                status_code=429,
+                detail=f"Tu as atteint ta limite de {messages_limit} messages ce mois-ci ({tier_name}). Passe au palier supérieur pour continuer ! 😊"
+            )
     
     # Get user's recent workouts for context
     workouts = await db.workouts.find({}, {"_id": 0}).sort("date", -1).to_list(50)
@@ -3931,12 +3951,18 @@ async def send_chat_message(request: ChatRequest):
     # Get user goal
     user_goal = await db.user_goals.find_one({"user_id": user_id}, {"_id": 0})
     
-    # Generate response using local chat engine (NO LLM)
-    response_text = generate_chat_response(
-        message=request.message,
-        workouts=workouts,
-        user_goal=user_goal
-    )
+    # Generate response using local chat engine (NO LLM) - fallback mode
+    # Note: If client uses WebLLM, it sends use_local_llm=True and we just store the message
+    if request.use_local_llm:
+        # Client is using WebLLM, we just need to store messages and track count
+        response_text = ""  # Client will generate this
+    else:
+        # Use Python templates fallback
+        response_text = generate_chat_response(
+            message=request.message,
+            workouts=workouts,
+            user_goal=user_goal
+        )
     
     # Store user message
     user_msg_id = str(uuid.uuid4())
@@ -3948,25 +3974,42 @@ async def send_chat_message(request: ChatRequest):
         "timestamp": now.isoformat()
     })
     
-    # Store assistant response
+    # Store assistant response only if generated server-side
     assistant_msg_id = str(uuid.uuid4())
-    await db.chat_messages.insert_one({
-        "id": assistant_msg_id,
-        "user_id": user_id,
-        "role": "assistant",
-        "content": response_text,
-        "timestamp": now.isoformat()
-    })
+    if response_text:
+        await db.chat_messages.insert_one({
+            "id": assistant_msg_id,
+            "user_id": user_id,
+            "role": "assistant",
+            "content": response_text,
+            "timestamp": now.isoformat()
+        })
     
-    messages_remaining = get_remaining_messages(message_count + 1, MAX_MESSAGES_PER_MONTH)
+    messages_remaining = max(0, messages_limit - message_count - 1) if not is_unlimited else 999
     
-    logger.info(f"Chat message processed for user {user_id}. Remaining: {messages_remaining}")
+    logger.info(f"Chat message processed for user {user_id} (tier={tier}). Remaining: {messages_remaining}")
     
     return ChatResponse(
         response=response_text,
         message_id=assistant_msg_id,
-        messages_remaining=messages_remaining
+        messages_remaining=messages_remaining,
+        messages_limit=messages_limit,
+        is_unlimited=is_unlimited
     )
+
+
+@api_router.post("/chat/store-response")
+async def store_chat_response(user_id: str, message_id: str, response: str):
+    """Store a response generated by client-side WebLLM"""
+    await db.chat_messages.insert_one({
+        "id": message_id,
+        "user_id": user_id,
+        "role": "assistant",
+        "content": response,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "source": "webllm"
+    })
+    return {"success": True}
 
 
 @api_router.get("/chat/history")
