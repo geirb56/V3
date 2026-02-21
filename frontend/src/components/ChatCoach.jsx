@@ -136,27 +136,23 @@ const ChatCoach = ({ isOpen, onClose, userId = "default" }) => {
 
   // Generate local response using WebLLM
   const generateLocalResponse = async (userMessage) => {
+    // Simplified context for small models
     let contextStr = "";
-    if (trainingContext) {
-      contextStr = `\nDonnées d'entraînement récentes:
-- ${trainingContext.nb_seances} séances récentes
-- Volume total: ${trainingContext.km_total} km
-${trainingContext.allure_moy ? `- Allure moyenne: ${trainingContext.allure_moy}` : ""}
-${trainingContext.cadence_moy ? `- Cadence moyenne: ${trainingContext.cadence_moy} spm` : ""}
-${trainingContext.zones ? `- Répartition zones: Z1-Z2 ${(trainingContext.zones.z1 || 0) + (trainingContext.zones.z2 || 0)}%, Z3 ${trainingContext.zones.z3 || 0}%, Z4-Z5 ${(trainingContext.zones.z4 || 0) + (trainingContext.zones.z5 || 0)}%` : ""}
-${trainingContext.derniere_seance ? `- Dernière séance: ${trainingContext.derniere_seance}` : ""}`;
+    if (trainingContext && trainingContext.km_total) {
+      contextStr = ` (${trainingContext.km_total}km cette semaine)`;
     }
     
-    const recentMessages = messages.slice(-4).map(m => ({
+    // Only keep last 2 messages for context (small model limitation)
+    const recentMessages = messages.slice(-2).map(m => ({
       role: m.role,
-      content: m.content
+      content: m.content.substring(0, 100) // Limit content length
     }));
     
     return await generateResponse([
       { role: "system", content: SYSTEM_PROMPT + contextStr },
       ...recentMessages,
       { role: "user", content: userMessage }
-    ], { maxTokens: 300, temperature: 0.7, topP: 0.9 });
+    ], { maxTokens: 100, temperature: 0.8, topP: 0.9, timeout: 20000 });
   };
 
   const handleSend = async () => {
