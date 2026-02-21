@@ -38,7 +38,7 @@ export const WebLLMFirstTimeBanner = () => {
               🚀 Coach IA local disponible !
             </h3>
             <p className="text-white/90 text-sm mb-3">
-              Téléchargement unique du coach IA local (~600 Mo) – Wi-Fi recommandé.
+              Téléchargement unique du coach IA local (~700 Mo) – Wi-Fi recommandé.
               <br />
               <span className="font-medium">Ça arrive une seule fois, ensuite tout est offline et privé !</span>
             </p>
@@ -193,7 +193,7 @@ export const WebLLMDownloadBanner = () => {
             <Progress value={downloadProgress} className="h-2" />
             <div className="flex items-center justify-between text-[10px] text-muted-foreground">
               <span>{downloadProgress}%</span>
-              <span>~600 Mo</span>
+              <span>~700 Mo</span>
             </div>
           </div>
         )}
