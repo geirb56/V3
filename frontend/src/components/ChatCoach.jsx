@@ -222,9 +222,8 @@ ${trainingContext.derniere_seance ? `- Dernière séance: ${trainingContext.dern
       if (!responseText) {
         responseText = res.data.response;
         console.log("Using server fallback response");
-      }
       } else {
-        // Store local response on server
+        // Store local response on server for history
         try {
           await axios.post(`${API}/chat/store-response?user_id=${userId}&message_id=${res.data.message_id}&response=${encodeURIComponent(responseText)}`);
         } catch (storeErr) {
