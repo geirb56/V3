@@ -7,6 +7,7 @@ export const translations = {
       guidance: "Guidance",
       coach: "Coach",
       progress: "Progress",
+      subscription: "Plans",
       settings: "Settings",
       tagline: "Elite Endurance Analysis",
     },
