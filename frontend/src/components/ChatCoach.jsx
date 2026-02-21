@@ -1,11 +1,11 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { useWebLLM } from "@/context/WebLLMContext";
 import { 
   MessageCircle, 
   Send, 
@@ -17,8 +17,7 @@ import {
   Download,
   Cpu,
   Wifi,
-  WifiOff,
-  AlertTriangle,
+  Shield,
   CheckCircle
 } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
@@ -48,29 +47,6 @@ RÈGLES:
 - Sois motivant mais réaliste
 - Jamais de conseils médicaux`;
 
-// Check WebGPU support
-const checkWebGPUSupport = async () => {
-  if (!navigator.gpu) {
-    return { supported: false, reason: "WebGPU non supporté par ce navigateur" };
-  }
-  
-  try {
-    const adapter = await navigator.gpu.requestAdapter();
-    if (!adapter) {
-      return { supported: false, reason: "Aucun adaptateur GPU disponible" };
-    }
-    
-    const device = await adapter.requestDevice();
-    if (!device) {
-      return { supported: false, reason: "Impossible d'initialiser le GPU" };
-    }
-    
-    return { supported: true, adapter, device };
-  } catch (e) {
-    return { supported: false, reason: e.message };
-  }
-};
-
 const ChatCoach = ({ isOpen, onClose, userId = "default" }) => {
   const { t } = useLanguage();
   const navigate = useNavigate();
@@ -79,45 +55,37 @@ const ChatCoach = ({ isOpen, onClose, userId = "default" }) => {
   const [loading, setLoading] = useState(false);
   const [subscriptionStatus, setSubscriptionStatus] = useState(null);
   const [checkingStatus, setCheckingStatus] = useState(true);
-  
-  // WebLLM state
-  const [webGPUSupported, setWebGPUSupported] = useState(null);
-  const [modelLoaded, setModelLoaded] = useState(false);
-  const [modelLoading, setModelLoading] = useState(false);
-  const [downloadProgress, setDownloadProgress] = useState(0);
-  const [downloadStatus, setDownloadStatus] = useState("");
-  const [useLocalLLM, setUseLocalLLM] = useState(false);
-  const [llmError, setLlmError] = useState(null);
   const [trainingContext, setTrainingContext] = useState(null);
   
+  // WebLLM from context
+  const { 
+    webGPUSupported, 
+    modelLoaded, 
+    modelCached,
+    isDownloading,
+    downloadProgress,
+    downloadStatus,
+    startDownload,
+    loadFromCache,
+    generateResponse,
+    error: llmError
+  } = useWebLLM();
+  
   const messagesEndRef = useRef(null);
-  const engineRef = useRef(null);
-  const abortControllerRef = useRef(null);
 
-  // Check subscription and WebGPU on mount
+  // Check subscription and load data on open
   useEffect(() => {
-    const init = async () => {
-      await checkSubscription();
-      await loadTrainingContext();
-      const gpuCheck = await checkWebGPUSupport();
-      setWebGPUSupported(gpuCheck.supported);
-      if (!gpuCheck.supported) {
-        console.log("WebGPU not supported:", gpuCheck.reason);
-      }
-    };
-    
     if (isOpen) {
-      init();
+      checkSubscription();
       loadHistory();
-    }
-    
-    // Cleanup on unmount
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
+      loadTrainingContext();
+      
+      // Auto-load model from cache if available
+      if (modelCached && !modelLoaded && !isDownloading) {
+        loadFromCache();
       }
-    };
-  }, [isOpen, userId]);
+    }
+  }, [isOpen, userId, modelCached, modelLoaded, isDownloading]);
 
   const checkSubscription = async () => {
     try {
@@ -133,11 +101,9 @@ const ChatCoach = ({ isOpen, onClose, userId = "default" }) => {
 
   const loadTrainingContext = async () => {
     try {
-      // Load recent workouts for context
       const res = await axios.get(`${API}/workouts?user_id=${userId}&limit=10`);
       const workouts = res.data || [];
       
-      // Build context from workouts
       if (workouts.length > 0) {
         const totalKm = workouts.reduce((sum, w) => sum + (w.distance_km || 0), 0);
         const avgPaces = workouts.filter(w => w.avg_pace_min_km).map(w => w.avg_pace_min_km);
@@ -145,7 +111,6 @@ const ChatCoach = ({ isOpen, onClose, userId = "default" }) => {
         const avgCadences = workouts.filter(w => w.avg_cadence_spm).map(w => w.avg_cadence_spm);
         const avgCadence = avgCadences.length > 0 ? Math.round(avgCadences.reduce((a, b) => a + b) / avgCadences.length) : null;
         
-        // Zone distribution
         let zoneTotal = { z1: 0, z2: 0, z3: 0, z4: 0, z5: 0 };
         let zoneCount = 0;
         workouts.forEach(w => {
@@ -189,69 +154,8 @@ const ChatCoach = ({ isOpen, onClose, userId = "default" }) => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Initialize WebLLM with SmolLM2 model
-  const initializeWebLLM = async () => {
-    if (!webGPUSupported) {
-      setLlmError("WebGPU non supporté");
-      return false;
-    }
-    
-    setModelLoading(true);
-    setDownloadProgress(0);
-    setDownloadStatus("Initialisation...");
-    setLlmError(null);
-    
-    try {
-      // Dynamic import of web-llm
-      const { CreateMLCEngine } = await import("@mlc-ai/web-llm");
-      
-      // Progress callback
-      const progressCallback = (progress) => {
-        const pct = Math.round(progress.progress * 100);
-        setDownloadProgress(pct);
-        setDownloadStatus(progress.text || `Téléchargement: ${pct}%`);
-      };
-      
-      // Create engine with SmolLM2 1.7B model
-      // Using a smaller quantized version for faster loading
-      engineRef.current = await CreateMLCEngine(
-        "SmolLM2-1.7B-Instruct-q4f16_1-MLC",
-        {
-          initProgressCallback: progressCallback,
-        }
-      );
-      
-      setModelLoaded(true);
-      setUseLocalLLM(true);
-      setDownloadStatus("Modèle chargé !");
-      
-      // Add welcome message from local AI
-      const welcomeMsg = {
-        id: `welcome-${Date.now()}`,
-        role: "assistant",
-        content: "🏃 Coach IA local activé ! Je suis prêt à t'aider avec tes questions d'entraînement. Toutes les réponses sont générées sur ton appareil, 100% privé.",
-        timestamp: new Date().toISOString()
-      };
-      setMessages(prev => [...prev, welcomeMsg]);
-      
-      return true;
-    } catch (err) {
-      console.error("WebLLM init error:", err);
-      setLlmError(err.message || "Erreur lors du chargement du modèle");
-      setModelLoading(false);
-      return false;
-    } finally {
-      setModelLoading(false);
-    }
-  };
-
-  // Generate response with WebLLM
+  // Generate local response using WebLLM
   const generateLocalResponse = async (userMessage) => {
-    if (!engineRef.current) {
-      throw new Error("Modèle non initialisé");
-    }
-    
-    // Build context string
     let contextStr = "";
     if (trainingContext) {
       contextStr = `\nDonnées d'entraînement récentes:
@@ -263,24 +167,16 @@ ${trainingContext.zones ? `- Répartition zones: Z1-Z2 ${(trainingContext.zones.
 ${trainingContext.derniere_seance ? `- Dernière séance: ${trainingContext.derniere_seance}` : ""}`;
     }
     
-    // Build conversation history (last 4 messages)
     const recentMessages = messages.slice(-4).map(m => ({
       role: m.role,
       content: m.content
     }));
     
-    const response = await engineRef.current.chat.completions.create({
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT + contextStr },
-        ...recentMessages,
-        { role: "user", content: userMessage }
-      ],
-      max_tokens: 300,
-      temperature: 0.7,
-      top_p: 0.9
-    });
-    
-    return response.choices[0].message.content;
+    return await generateResponse([
+      { role: "system", content: SYSTEM_PROMPT + contextStr },
+      ...recentMessages,
+      { role: "user", content: userMessage }
+    ], { maxTokens: 300, temperature: 0.7, topP: 0.9 });
   };
 
   const handleSend = async () => {
@@ -290,7 +186,6 @@ ${trainingContext.derniere_seance ? `- Dernière séance: ${trainingContext.dern
     setInput("");
     setLoading(true);
 
-    // Add user message optimistically
     const tempUserMsg = {
       id: `temp-${Date.now()}`,
       role: "user",
@@ -304,28 +199,27 @@ ${trainingContext.derniere_seance ? `- Dernière séance: ${trainingContext.dern
       let usedLocalLLM = false;
       
       // Try WebLLM first if available
-      if (useLocalLLM && modelLoaded && engineRef.current) {
+      if (modelLoaded) {
         try {
           responseText = await generateLocalResponse(userMessage);
           usedLocalLLM = true;
         } catch (llmErr) {
           console.error("WebLLM generation error:", llmErr);
-          // Will fallback to server
         }
       }
       
-      // Send to backend (for message counting and fallback if needed)
+      // Send to backend
       const res = await axios.post(`${API}/chat/send`, {
         message: userMessage,
         user_id: userId,
         use_local_llm: usedLocalLLM
       });
 
-      // If no local response, use server response
+      // Use server response if local failed
       if (!responseText) {
         responseText = res.data.response;
       } else {
-        // Store local response on server for history
+        // Store local response on server
         try {
           await axios.post(`${API}/chat/store-response?user_id=${userId}&message_id=${res.data.message_id}&response=${encodeURIComponent(responseText)}`);
         } catch (storeErr) {
@@ -333,7 +227,6 @@ ${trainingContext.derniere_seance ? `- Dernière séance: ${trainingContext.dern
         }
       }
 
-      // Add assistant response
       const assistantMsg = {
         id: res.data.message_id,
         role: "assistant",
@@ -343,7 +236,6 @@ ${trainingContext.derniere_seance ? `- Dernière séance: ${trainingContext.dern
       };
       setMessages(prev => [...prev, assistantMsg]);
 
-      // Update remaining messages
       setSubscriptionStatus(prev => ({
         ...prev,
         messages_remaining: res.data.messages_remaining,
@@ -417,29 +309,32 @@ ${trainingContext.derniere_seance ? `- Dernière séance: ${trainingContext.dern
           </div>
           <div className="flex items-center gap-2">
             {/* WebLLM status indicator */}
-            {webGPUSupported !== null && (
-              <div 
-                className="flex items-center gap-1 px-2 py-1 rounded-full bg-muted/50" 
-                title={modelLoaded ? "IA locale active (100% privé)" : webGPUSupported ? "IA locale disponible" : "Mode serveur (WebGPU non supporté)"}
-              >
-                {modelLoaded ? (
-                  <>
-                    <Cpu className="w-3 h-3 text-green-500" />
-                    <span className="text-[9px] text-green-500">Local</span>
-                  </>
-                ) : webGPUSupported ? (
-                  <>
-                    <Cpu className="w-3 h-3 text-muted-foreground" />
-                    <span className="text-[9px] text-muted-foreground">GPU</span>
-                  </>
-                ) : (
-                  <>
-                    <Wifi className="w-3 h-3 text-amber-500" />
-                    <span className="text-[9px] text-amber-500">Serveur</span>
-                  </>
-                )}
-              </div>
-            )}
+            <div 
+              className="flex items-center gap-1 px-2 py-1 rounded-full bg-muted/50" 
+              title={modelLoaded ? "IA locale active (100% privé)" : modelCached ? "Modèle en cache" : webGPUSupported ? "IA locale disponible" : "Mode serveur"}
+            >
+              {modelLoaded ? (
+                <>
+                  <Cpu className="w-3 h-3 text-green-500" />
+                  <span className="text-[9px] text-green-500">Local</span>
+                </>
+              ) : modelCached ? (
+                <>
+                  <CheckCircle className="w-3 h-3 text-amber-500" />
+                  <span className="text-[9px] text-amber-500">Prêt</span>
+                </>
+              ) : webGPUSupported ? (
+                <>
+                  <Cpu className="w-3 h-3 text-muted-foreground" />
+                  <span className="text-[9px] text-muted-foreground">GPU</span>
+                </>
+              ) : (
+                <>
+                  <Wifi className="w-3 h-3 text-amber-500" />
+                  <span className="text-[9px] text-amber-500">Serveur</span>
+                </>
+              )}
+            </div>
             {messages.length > 0 && (
               <Button 
                 variant="ghost" 
@@ -470,37 +365,24 @@ ${trainingContext.derniere_seance ? `- Dernière séance: ${trainingContext.dern
           </div>
         ) : (
           <>
-            {/* WebLLM Loading Banner */}
-            {modelLoading && (
+            {/* WebLLM Download in Progress */}
+            {isDownloading && (
               <div className="p-3 bg-amber-500/10 border-b border-amber-500/20">
                 <div className="flex items-center gap-2 mb-2">
                   <Download className="w-4 h-4 text-amber-500 animate-pulse" />
                   <span className="text-xs text-amber-600 font-medium">
-                    {downloadStatus}
+                    {downloadStatus || "Téléchargement..."}
                   </span>
                 </div>
                 <Progress value={downloadProgress} className="h-1.5" />
                 <p className="text-[10px] text-muted-foreground mt-1">
-                  Wi-Fi recommandé • ~1.3 Go • Une seule fois
+                  Tu peux continuer à utiliser l'app, le téléchargement continue en arrière-plan
                 </p>
               </div>
             )}
 
-            {/* WebLLM Error */}
-            {llmError && (
-              <div className="p-3 bg-destructive/10 border-b border-destructive/20">
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-destructive" />
-                  <span className="text-xs text-destructive">{llmError}</span>
-                </div>
-                <p className="text-[10px] text-muted-foreground mt-1">
-                  Le coach serveur reste disponible.
-                </p>
-              </div>
-            )}
-
-            {/* WebLLM Init Button (if not loaded and supported) */}
-            {!modelLoaded && !modelLoading && webGPUSupported && isPremium && !llmError && (
+            {/* WebLLM Init Button (if not loaded/downloading and premium) */}
+            {!modelLoaded && !modelCached && !isDownloading && webGPUSupported && isPremium && !llmError && (
               <div className="p-3 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-b border-amber-500/20">
                 <div className="flex items-center justify-between">
                   <div>
@@ -509,28 +391,50 @@ ${trainingContext.derniere_seance ? `- Dernière séance: ${trainingContext.dern
                       <p className="text-xs font-medium text-amber-600">Coach IA local disponible</p>
                     </div>
                     <p className="text-[10px] text-muted-foreground mt-0.5">
-                      Réponses enrichies • 100% privé • Offline
+                      ~1.3 Go • Wi-Fi recommandé • 100% privé
                     </p>
                   </div>
                   <Button 
                     size="sm" 
-                    onClick={initializeWebLLM}
+                    onClick={startDownload}
                     className="text-xs h-7 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
                   >
-                    <Cpu className="w-3 h-3 mr-1" />
-                    Activer
+                    <Download className="w-3 h-3 mr-1" />
+                    Télécharger
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Model Cached - Load Button */}
+            {modelCached && !modelLoaded && !isDownloading && (
+              <div className="p-2 bg-green-500/10 border-b border-green-500/20">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-3.5 h-3.5 text-green-500" />
+                    <span className="text-[10px] text-green-600">
+                      Modèle en cache • Prêt à charger
+                    </span>
+                  </div>
+                  <Button 
+                    size="sm" 
+                    variant="ghost"
+                    onClick={loadFromCache}
+                    className="text-xs h-6 text-green-600 hover:text-green-700"
+                  >
+                    Charger
                   </Button>
                 </div>
               </div>
             )}
 
             {/* Model Loaded Success */}
-            {modelLoaded && !modelLoading && (
+            {modelLoaded && (
               <div className="p-2 bg-green-500/10 border-b border-green-500/20">
                 <div className="flex items-center gap-2">
-                  <CheckCircle className="w-3.5 h-3.5 text-green-500" />
+                  <Shield className="w-3.5 h-3.5 text-green-500" />
                   <span className="text-[10px] text-green-600">
-                    Coach IA local actif • Réponses 100% privées
+                    Coach IA local actif • 100% privé • Offline
                   </span>
                 </div>
               </div>
@@ -545,10 +449,10 @@ ${trainingContext.derniere_seance ? `- Dernière séance: ${trainingContext.dern
                   <p className="text-xs mt-1 text-muted-foreground/70">
                     Ex: "Comment je récupère ?" ou "Analyse ma semaine"
                   </p>
-                  {!isPremium && (
+                  {!isPremium && webGPUSupported && (
                     <div className="mt-4 p-3 bg-muted/50 rounded-lg">
                       <p className="text-xs">
-                        💡 Passe à un abonnement premium pour débloquer le coach IA local !
+                        💡 Passe à un abonnement premium pour le coach IA local !
                       </p>
                     </div>
                   )}
@@ -595,14 +499,12 @@ ${trainingContext.derniere_seance ? `- Dernière séance: ${trainingContext.dern
 
             {/* Input */}
             <div className="p-4 border-t border-border bg-card">
-              {/* Low messages warning */}
               {!isUnlimited && subscriptionStatus?.messages_remaining <= 3 && subscriptionStatus?.messages_remaining > 0 && (
                 <p className="text-xs text-amber-500 mb-2 text-center">
                   ⚠️ Plus que {subscriptionStatus.messages_remaining} messages ce mois
                 </p>
               )}
               
-              {/* Limit reached */}
               {!canSendMessages ? (
                 <div className="text-center py-2">
                   <p className="text-xs text-destructive mb-2">
