@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Outlet, NavLink, useLocation } from "react-router-dom";
-import { Activity, MessageSquare, BarChart3, Home, Settings, Compass, CalendarDays, Crown } from "lucide-react";
+import { Activity, MessageSquare, BarChart3, Home, Settings, Compass, CalendarDays, Crown, CreditCard } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { useAutoSync } from "@/hooks/useAutoSync";
 import ChatCoach from "@/components/ChatCoach";
@@ -12,28 +12,33 @@ export const Layout = () => {
   const location = useLocation();
   const { t } = useLanguage();
   const [chatOpen, setChatOpen] = useState(false);
-  const [isPremium, setIsPremium] = useState(false);
+  const [subscriptionTier, setSubscriptionTier] = useState("free");
+  const [tierName, setTierName] = useState("Gratuit");
   
   // Auto-sync Strava data on startup
   useAutoSync();
 
-  // Check premium status
+  // Check subscription status
   useEffect(() => {
-    const checkPremium = async () => {
+    const checkSubscription = async () => {
       try {
-        const res = await axios.get(`${API}/premium/status?user_id=default`);
-        setIsPremium(res.data.is_premium);
+        const res = await axios.get(`${API}/subscription/status?user_id=default`);
+        setSubscriptionTier(res.data.tier || "free");
+        setTierName(res.data.tier_name || "Gratuit");
       } catch (err) {
-        console.error("Error checking premium:", err);
+        console.error("Error checking subscription:", err);
       }
     };
-    checkPremium();
+    checkSubscription();
   }, []);
+
+  const isPremium = subscriptionTier !== "free";
 
   const navItems = [
     { path: "/", icon: Home, labelKey: "nav.dashboard" },
     { path: "/digest", icon: CalendarDays, labelKey: "nav.digest" },
     { path: "/progress", icon: BarChart3, labelKey: "nav.progress" },
+    { path: "/subscription", icon: CreditCard, labelKey: "nav.subscription" },
     { path: "/settings", icon: Settings, labelKey: "nav.settings" },
   ];
 
