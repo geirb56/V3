@@ -3510,16 +3510,23 @@ async def disconnect_strava(user_id: str = "default"):
 
 # ========== PREMIUM SUBSCRIPTION (STRIPE) ==========
 
-class PremiumStatusResponse(BaseModel):
-    is_premium: bool
+class SubscriptionStatusResponse(BaseModel):
+    tier: str = "free"
+    tier_name: str = "Gratuit"
+    is_premium: bool = False
     subscription_id: Optional[str] = None
+    billing_period: Optional[str] = None  # "monthly" or "annual"
     expires_at: Optional[str] = None
     messages_used: int = 0
-    messages_remaining: int = MAX_MESSAGES_PER_MONTH
+    messages_limit: int = 10
+    messages_remaining: int = 10
+    is_unlimited: bool = False
 
 
 class CreateCheckoutRequest(BaseModel):
     origin_url: str
+    tier: str = "starter"  # starter, confort, pro
+    billing_period: str = "monthly"  # monthly, annual
 
 
 class CreateCheckoutResponse(BaseModel):
@@ -3530,12 +3537,15 @@ class CreateCheckoutResponse(BaseModel):
 class ChatRequest(BaseModel):
     message: str
     user_id: str = "default"
+    use_local_llm: bool = False  # True if using WebLLM on client
 
 
 class ChatResponse(BaseModel):
     response: str
     message_id: str
     messages_remaining: int
+    messages_limit: int
+    is_unlimited: bool = False
 
 
 class ChatHistoryItem(BaseModel):
@@ -3545,41 +3555,73 @@ class ChatHistoryItem(BaseModel):
     timestamp: str
 
 
-@api_router.get("/premium/status")
-async def get_premium_status(user_id: str = "default"):
-    """Check if user has active premium subscription"""
+class SubscriptionTierInfo(BaseModel):
+    id: str
+    name: str
+    price_monthly: float
+    price_annual: float
+    messages_limit: int
+    unlimited: bool = False
+    description: str
+
+
+@api_router.get("/subscription/tiers")
+async def get_subscription_tiers():
+    """Get all available subscription tiers"""
+    tiers = []
+    for tier_id, config in SUBSCRIPTION_TIERS.items():
+        tiers.append(SubscriptionTierInfo(
+            id=tier_id,
+            name=config["name"],
+            price_monthly=config["price_monthly"],
+            price_annual=config["price_annual"],
+            messages_limit=config["messages_limit"],
+            unlimited=config.get("unlimited", False),
+            description=config["description"]
+        ))
+    return tiers
+
+
+@api_router.get("/subscription/status")
+async def get_subscription_status(user_id: str = "default"):
+    """Check user's subscription status"""
     
     # Check subscription in DB
     subscription = await db.subscriptions.find_one(
-        {"user_id": user_id, "status": "active"},
+        {"user_id": user_id},
         {"_id": 0}
     )
     
-    if not subscription:
-        return PremiumStatusResponse(
-            is_premium=False,
-            messages_used=0,
-            messages_remaining=0
-        )
+    # Default to free tier
+    tier = "free"
+    tier_config = SUBSCRIPTION_TIERS["free"]
+    is_premium = False
+    billing_period = None
+    expires_at = None
+    subscription_id = None
     
-    # Check if subscription is still valid
-    expires_at = subscription.get("expires_at")
-    if expires_at:
-        try:
-            exp_date = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
-            if exp_date < datetime.now(timezone.utc):
-                # Subscription expired
-                await db.subscriptions.update_one(
-                    {"user_id": user_id},
-                    {"$set": {"status": "expired"}}
-                )
-                return PremiumStatusResponse(
-                    is_premium=False,
-                    messages_used=0,
-                    messages_remaining=0
-                )
-        except:
-            pass
+    if subscription and subscription.get("status") == "active":
+        expires_at = subscription.get("expires_at")
+        
+        # Check if subscription is still valid
+        if expires_at:
+            try:
+                exp_date = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+                if exp_date < datetime.now(timezone.utc):
+                    # Subscription expired - revert to free
+                    await db.subscriptions.update_one(
+                        {"user_id": user_id},
+                        {"$set": {"status": "expired"}}
+                    )
+                else:
+                    # Active subscription
+                    tier = subscription.get("tier", "starter")
+                    tier_config = SUBSCRIPTION_TIERS.get(tier, SUBSCRIPTION_TIERS["starter"])
+                    is_premium = True
+                    billing_period = subscription.get("billing_period", "monthly")
+                    subscription_id = subscription.get("subscription_id")
+            except:
+                pass
     
     # Get message count for current month
     now = datetime.now(timezone.utc)
@@ -3591,25 +3633,63 @@ async def get_premium_status(user_id: str = "default"):
         "timestamp": {"$gte": month_start.isoformat()}
     })
     
-    return PremiumStatusResponse(
-        is_premium=True,
-        subscription_id=subscription.get("subscription_id"),
+    messages_limit = tier_config.get("messages_limit", 10)
+    is_unlimited = tier_config.get("unlimited", False)
+    
+    return SubscriptionStatusResponse(
+        tier=tier,
+        tier_name=tier_config["name"],
+        is_premium=is_premium,
+        subscription_id=subscription_id,
+        billing_period=billing_period,
         expires_at=expires_at,
         messages_used=message_count,
-        messages_remaining=max(0, MAX_MESSAGES_PER_MONTH - message_count)
+        messages_limit=messages_limit,
+        messages_remaining=max(0, messages_limit - message_count) if not is_unlimited else 999,
+        is_unlimited=is_unlimited
     )
 
 
-@api_router.post("/premium/checkout", response_model=CreateCheckoutResponse)
-async def create_premium_checkout(request: CreateCheckoutRequest, http_request: Request, user_id: str = "default"):
-    """Create Stripe checkout session for premium subscription"""
+# Keep old endpoint for backward compatibility
+@api_router.get("/premium/status")
+async def get_premium_status(user_id: str = "default"):
+    """Check if user has active premium subscription (backward compat)"""
+    status = await get_subscription_status(user_id)
+    return {
+        "is_premium": status.is_premium or status.tier != "free",
+        "subscription_id": status.subscription_id,
+        "expires_at": status.expires_at,
+        "messages_used": status.messages_used,
+        "messages_remaining": status.messages_remaining,
+        "tier": status.tier,
+        "tier_name": status.tier_name,
+        "messages_limit": status.messages_limit,
+        "is_unlimited": status.is_unlimited
+    }
+
+
+@api_router.post("/subscription/checkout", response_model=CreateCheckoutResponse)
+async def create_subscription_checkout(request: CreateCheckoutRequest, http_request: Request, user_id: str = "default"):
+    """Create Stripe checkout session for subscription"""
     
     if not STRIPE_API_KEY:
         raise HTTPException(status_code=500, detail="Stripe not configured")
     
+    # Validate tier
+    if request.tier not in ["starter", "confort", "pro"]:
+        raise HTTPException(status_code=400, detail="Invalid subscription tier")
+    
+    tier_config = SUBSCRIPTION_TIERS[request.tier]
+    
+    # Get price based on billing period
+    if request.billing_period == "annual":
+        amount = tier_config["price_annual"]
+    else:
+        amount = tier_config["price_monthly"]
+    
     # Build URLs
-    success_url = f"{request.origin_url}/settings?session_id={{CHECKOUT_SESSION_ID}}&premium=success"
-    cancel_url = f"{request.origin_url}/settings?premium=cancelled"
+    success_url = f"{request.origin_url}/settings?session_id={{CHECKOUT_SESSION_ID}}&subscription=success"
+    cancel_url = f"{request.origin_url}/settings?subscription=cancelled"
     
     # Initialize Stripe
     webhook_url = f"{str(http_request.base_url)}api/webhook/stripe"
@@ -3617,7 +3697,58 @@ async def create_premium_checkout(request: CreateCheckoutRequest, http_request: 
     
     # Create checkout session
     checkout_request = CheckoutSessionRequest(
-        amount=PREMIUM_PRICE_MONTHLY,
+        amount=amount,
+        currency="eur",
+        success_url=success_url,
+        cancel_url=cancel_url,
+        metadata={
+            "user_id": user_id,
+            "product": f"cardiocoach_{request.tier}",
+            "tier": request.tier,
+            "billing_period": request.billing_period,
+            "type": "subscription"
+        }
+    )
+    
+    try:
+        session = await stripe_checkout.create_checkout_session(checkout_request)
+        
+        # Record transaction as pending
+        await db.payment_transactions.insert_one({
+            "session_id": session.session_id,
+            "user_id": user_id,
+            "amount": amount,
+            "currency": "eur",
+            "tier": request.tier,
+            "billing_period": request.billing_period,
+            "status": "pending",
+            "product": f"cardiocoach_{request.tier}",
+            "created_at": datetime.now(timezone.utc).isoformat()
+        })
+        
+        logger.info(f"Checkout session created for user {user_id}: {request.tier} ({request.billing_period})")
+        
+        return CreateCheckoutResponse(
+            checkout_url=session.url,
+            session_id=session.session_id
+        )
+    
+    except Exception as e:
+        logger.error(f"Stripe checkout error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to create checkout: {str(e)}")
+
+
+# Keep old endpoint for backward compatibility
+@api_router.post("/premium/checkout", response_model=CreateCheckoutResponse)
+async def create_premium_checkout(request: CreateCheckoutRequest, http_request: Request, user_id: str = "default"):
+    """Create Stripe checkout session (backward compat)"""
+    # Convert old request to new format
+    new_request = CreateCheckoutRequest(
+        origin_url=request.origin_url,
+        tier="starter",
+        billing_period="monthly"
+    )
+    return await create_subscription_checkout(new_request, http_request, user_id)
         currency="eur",
         success_url=success_url,
         cancel_url=cancel_url,
