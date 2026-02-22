@@ -1527,216 +1527,217 @@ def generate_response(message: str, context: Dict, category: str = None) -> str:
 
 
 # ============================================================
-# SUGGESTIONS INTELLIGENTES (3-5 questions par réponse)
+# SUGGESTIONS INTELLIGENTES (Questions que l'USER peut poser au COACH)
+# 3-5 questions par réponse, personnalisées avec les données user
 # ============================================================
 
 SUGGESTED_QUESTIONS = {
     # ==================== FATIGUE / LOURDEUR ====================
     "fatigue": [
-        "Tu veux un conseil pour mieux récupérer demain ?",
-        "T'as senti tes jambes lourdes dès le début ou seulement à la fin ?",
-        "Hydratation et sommeil au top cette semaine ?",
-        "On regarde ensemble un plan plus cool pour les prochains jours ?",
-        "Tu as déjà eu ce genre de lourdeur avant ?",
-        "Tu veux qu'on analyse ta charge des dernières semaines ?",
-        "T'as ressenti des courbatures aussi ou juste de la fatigue ?",
-        "Tu dors bien en ce moment ?",
-        "On planifie une semaine de récup ?",
-        "Tu veux des conseils nutrition pour mieux récupérer ?",
-        "T'as des signes de surentraînement à me décrire ?",
-        "On baisse le volume cette semaine ?",
+        "Comment mieux récupérer demain ?",
+        "Conseils pour éviter la lourdeur en fin de sortie ?",
+        "Comment gérer une charge élevée comme celle-là ?",
+        "Quel type de footing pour recharger les batteries ?",
+        "Comment savoir si je suis en surcharge ?",
+        "Quels signes de fatigue surveiller ?",
+        "Combien de jours de repos après une grosse semaine ?",
+        "Comment optimiser mon sommeil pour mieux récupérer ?",
+        "Quelle nutrition pour mieux récupérer ?",
+        "Est-ce que je dois réduire le volume cette semaine ?",
+        "Comment éviter le surentraînement ?",
+        "Quels étirements pour soulager les jambes lourdes ?",
     ],
     
     # ==================== ALLURE / CADENCE ====================
     "allure_cadence": [
-        "Tu veux des drills pour booster ta cadence ?",
-        "Tu cours souvent sur terrain vallonné ou plat ?",
-        "On ajuste tes paces cibles pour la prochaine sortie ?",
-        "Tu sens une différence quand tu forces sur la cadence ?",
-        "Tu veux un exercice spécifique pour améliorer ta foulée ?",
-        "T'as une montre qui affiche la cadence en direct ?",
-        "On travaille l'allure spécifique cette semaine ?",
-        "Tu veux qu'on calcule tes zones d'allure ?",
-        "Tu fais déjà des gammes ou du travail technique ?",
-        "Tu préfères bosser le fractionné court ou long ?",
-        "On intègre des côtes pour améliorer naturellement ?",
-        "Tu veux un plan avec du travail de foulée ?",
+        "Comment augmenter ma cadence efficacement ?",
+        "Quels drills pour booster ma foulée ?",
+        "Quelle allure cible pour mon prochain tempo ?",
+        "Comment progresser sur mon allure moyenne ?",
+        "Comment améliorer ma technique de course ?",
+        "Quels exercices pour une foulée plus économe ?",
+        "Comment trouver ma bonne allure en endurance ?",
+        "Quelle cadence viser pour progresser ?",
+        "Comment travailler ma vitesse sans me blesser ?",
+        "Quels gammes faire avant une séance rapide ?",
+        "Comment interpréter mes zones cardiaques ?",
+        "Quelle est l'allure idéale pour une sortie longue ?",
     ],
     
     # ==================== PLAN / PRÉPA COURSE ====================
     "plan": [
-        "Tu veux un plan détaillé pour la semaine prochaine ?",
-        "On augmente le volume ou on reste stable ?",
-        "Ton objectif reste le même ou tu veux ajuster ?",
-        "Tu préfères un plan trail ou route ?",
-        "Tu veux qu'on cale les séances qualité quels jours ?",
-        "On intègre une sortie longue ce week-end ?",
-        "Tu veux un plan spécifique pour ton objectif ?",
-        "Combien de séances tu peux faire cette semaine ?",
-        "On ajoute du fractionné dans ton plan ?",
-        "Tu préfères des séances courtes et intenses ou longues et cool ?",
-        "On planifie aussi la semaine d'après ?",
-        "Tu veux que je t'envoie un récap du plan ?",
+        "Quel plan pour la semaine prochaine ?",
+        "Comment augmenter le volume sans risque ?",
+        "Comment adapter le plan si je me sens fatigué ?",
+        "Combien de séances par semaine idéalement ?",
+        "Comment équilibrer fractionné et endurance ?",
+        "Quelle progression de volume est sécuritaire ?",
+        "Comment planifier une semaine type ?",
+        "Quand placer ma sortie longue dans la semaine ?",
+        "Comment intégrer du renforcement musculaire ?",
+        "Quelle est la meilleure répartition des séances ?",
+        "Comment gérer une semaine chargée au travail ?",
+        "Quand faire une semaine de récupération ?",
     ],
     
     # ==================== PRÉPA COURSE (proche) ====================
     "prepa_course": [
-        "Tu veux un plan spécifique pour ta course ?",
-        "On fait le point sur ta stratégie de course ?",
-        "Tu as prévu ta nutrition pour le jour J ?",
-        "On parle de ta gestion d'allure sur le parcours ?",
-        "Tu connais bien le dénivelé du parcours ?",
-        "Tu veux des conseils pour la dernière semaine avant ?",
-        "On prépare ta checklist d'avant-course ?",
-        "Tu as testé ta tenue et tes chaussures ?",
-        "Tu veux qu'on simule les sensations du jour J ?",
-        "On parle de l'échauffement avant le départ ?",
-        "Tu as une stratégie pour les ravitos ?",
-        "Tu veux des conseils pour gérer le stress d'avant-course ?",
+        "Comment bien préparer ma course ?",
+        "Quelle stratégie d'allure adopter ?",
+        "Que manger avant la course ?",
+        "Comment gérer le stress d'avant-course ?",
+        "Quoi faire la dernière semaine avant ?",
+        "Comment m'échauffer le jour J ?",
+        "Quelle stratégie pour les ravitaillements ?",
+        "Comment éviter de partir trop vite ?",
+        "Quels objectifs réalistes me fixer ?",
+        "Comment gérer le dénivelé sur ce parcours ?",
+        "Que faire si je me sens pas bien le jour J ?",
+        "Comment récupérer après la course ?",
     ],
     
     # ==================== RÉCUPÉRATION / REPOS ====================
     "recuperation": [
-        "Tu veux des idées pour mieux dormir et récupérer ?",
-        "Tu ressens quoi au réveil après une semaine comme ça ?",
-        "On ajoute une séance de mobilité pour aider la récup ?",
-        "Tu fais du foam roller ou des étirements ?",
-        "Tu veux un programme de récup active ?",
-        "T'as essayé les bains froids ou les douches fraîches ?",
-        "On parle de ta nutrition post-entraînement ?",
-        "Tu prends des jours off complets ?",
-        "Tu veux qu'on calcule ton besoin en récup ?",
-        "T'as des courbatures qui persistent ?",
-        "On planifie une semaine de décharge ?",
-        "Tu veux des conseils pour mieux dormir ?",
+        "Conseils pour mieux dormir et récupérer ?",
+        "Comment optimiser ma récup après une semaine chargée ?",
+        "Quelle séance de mobilité ajouter ?",
+        "Est-ce que je dois prendre un jour off complet ?",
+        "Quels étirements faire après une sortie ?",
+        "Comment utiliser le foam roller efficacement ?",
+        "Bain froid ou chaud pour la récup ?",
+        "Quelle alimentation favorise la récupération ?",
+        "Comment savoir si j'ai bien récupéré ?",
+        "Combien de temps entre deux séances intenses ?",
+        "Comment récupérer d'une course difficile ?",
+        "Quels compléments pour mieux récupérer ?",
     ],
     
     # ==================== ANALYSE SEMAINE ====================
     "analyse_semaine": [
-        "Tu veux qu'on regarde une séance en détail ?",
-        "On compare avec la semaine dernière ?",
-        "Tu es satisfait de ta semaine globalement ?",
-        "On ajuste les objectifs pour la suite ?",
-        "Tu veux un bilan plus détaillé par zone ?",
-        "On parle de ce qui a bien marché ?",
-        "Tu veux qu'on identifie les points à améliorer ?",
-        "On planifie la semaine prochaine ensemble ?",
-        "T'as des sensations particulières à me décrire ?",
-        "Tu veux qu'on analyse ta progression sur le mois ?",
-        "On regarde l'évolution de ton allure ?",
-        "Tu veux des conseils pour la suite ?",
+        "Comment interpréter mes stats de la semaine ?",
+        "Est-ce que ma répartition de zones est bonne ?",
+        "Comment améliorer ma régularité ?",
+        "Qu'est-ce que je pourrais faire mieux ?",
+        "Comment comparer avec la semaine dernière ?",
+        "Mon volume est-il suffisant pour progresser ?",
+        "Comment lire mon ratio charge/récup ?",
+        "Quels sont mes points forts actuels ?",
+        "Sur quoi devrais-je travailler en priorité ?",
+        "Ma progression est-elle normale ?",
+        "Comment atteindre mes objectifs plus vite ?",
+        "Quelles erreurs éviter pour la suite ?",
     ],
     
     # ==================== MOTIVATION ====================
     "motivation": [
-        "Qu'est-ce qui te motive le plus en ce moment ?",
-        "Tu veux qu'on fixe un petit défi fun pour la prochaine sortie ?",
-        "Tu te sens comment mentalement après cette semaine ?",
-        "Tu veux qu'on change un peu ta routine ?",
-        "T'as essayé de courir en groupe ou avec un pote ?",
-        "On se fixe un mini-objectif atteignable ?",
-        "Tu veux découvrir un nouveau parcours ?",
-        "T'as envie de tester un autre type de séance ?",
-        "On parle de ce qui te bloque en ce moment ?",
-        "Tu veux qu'on planifie une course fun pour te remotiver ?",
-        "T'écoutes de la musique ou des podcasts en courant ?",
-        "Tu veux des conseils pour retrouver l'envie ?",
+        "Comment rester motivé sur la durée ?",
+        "Petit défi fun pour la prochaine sortie ?",
+        "Comment gérer les baisses de motivation ?",
+        "Quoi faire quand j'ai pas envie de courir ?",
+        "Comment me fixer des objectifs motivants ?",
+        "Comment varier mes parcours pour pas m'ennuyer ?",
+        "Courir seul ou en groupe, qu'est-ce qui est mieux ?",
+        "Comment transformer une mauvaise sortie en positif ?",
+        "Comment célébrer mes petites victoires ?",
+        "Comment garder l'envie après un échec ?",
+        "Quels podcasts ou musiques pour courir ?",
+        "Comment me remotiver après une pause ?",
     ],
     
     # ==================== BLESSURES ====================
     "blessures": [
-        "Tu veux des exercices de renfo pour prévenir ça ?",
-        "T'as vu un kiné ou un médecin du sport ?",
-        "La douleur est là depuis combien de temps ?",
-        "Tu veux qu'on adapte ton plan en attendant ?",
-        "Ça fait mal aussi au repos ou seulement en courant ?",
-        "Tu veux des conseils pour reprendre en douceur ?",
-        "T'as changé quelque chose récemment (chaussures, terrain) ?",
-        "On parle de renforcement pour éviter les récidives ?",
-        "Tu veux un plan de reprise progressive ?",
-        "T'as des douleurs ailleurs aussi ?",
-        "Tu fais du renfo régulièrement ?",
-        "Tu veux des exercices spécifiques pour cette zone ?",
+        "Que faire pour une douleur au genou ?",
+        "Dois-je continuer ou me reposer avec cette douleur ?",
+        "Conseils pour éviter que ça empire ?",
+        "Quels exercices de renforcement préventif ?",
+        "Comment reprendre après une blessure ?",
+        "Quand consulter un médecin du sport ?",
+        "Comment prévenir les blessures courantes ?",
+        "Quels signes indiquent qu'il faut s'arrêter ?",
+        "Comment adapter mon entraînement avec une gêne ?",
+        "Quels étirements pour prévenir les douleurs ?",
+        "Comment renforcer mes points faibles ?",
+        "Quelle est la différence entre courbature et blessure ?",
     ],
     
     # ==================== PROGRESSION / STAGNATION ====================
     "progression": [
-        "Tu veux qu'on analyse tes dernières courses ?",
-        "On change quelque chose dans ton entraînement ?",
-        "Tu fais du travail de vitesse régulièrement ?",
-        "Tu veux un plan pour casser ce plateau ?",
-        "T'as essayé de varier les types de séances ?",
-        "On parle de ce qui pourrait t'aider à progresser ?",
-        "Tu veux qu'on calcule ta VMA estimée ?",
-        "On ajoute du travail spécifique cette semaine ?",
-        "Tu veux des conseils pour gagner en vitesse ?",
-        "T'as pris assez de repos ces derniers temps ?",
-        "On regarde si ton volume est adapté ?",
-        "Tu veux qu'on analyse ta technique de foulée ?",
+        "Comment casser un plateau de progression ?",
+        "Pourquoi je ne progresse plus ?",
+        "Comment varier mes entraînements pour progresser ?",
+        "Quelle est ma VMA estimée ?",
+        "Comment travailler ma vitesse efficacement ?",
+        "Quels types de séances pour progresser vite ?",
+        "Comment savoir si je progresse vraiment ?",
+        "Quel volume pour passer au niveau supérieur ?",
+        "Comment améliorer mon endurance fondamentale ?",
+        "Quels indicateurs de progression surveiller ?",
+        "Comment éviter de stagner dans mon entraînement ?",
+        "Quels objectifs intermédiaires me fixer ?",
     ],
     
     # ==================== NUTRITION ====================
     "nutrition": [
-        "Tu veux des idées de repas avant une sortie longue ?",
-        "Tu t'hydrates bien pendant l'effort ?",
-        "Tu veux des conseils sur les gels et barres ?",
-        "T'as déjà eu des problèmes digestifs en courant ?",
-        "Tu manges quoi après tes séances ?",
-        "Tu veux un plan nutrition pour ta prochaine course ?",
-        "T'as des crampes régulièrement ?",
-        "Tu veux des conseils pour le petit-déj pré-course ?",
-        "Tu bois combien par jour environ ?",
-        "Tu veux qu'on parle des compléments alimentaires ?",
-        "T'as testé les boissons énergétiques ?",
-        "Tu veux des idées de collations saines ?",
+        "Quoi manger avant une sortie longue ?",
+        "Comment bien m'hydrater pendant l'effort ?",
+        "Quels gels ou barres recommandes-tu ?",
+        "Comment éviter les problèmes digestifs en courant ?",
+        "Que manger après une séance intense ?",
+        "Comment adapter mon alimentation à mon entraînement ?",
+        "Quels aliments favorisent la récupération ?",
+        "Comment gérer la nutrition en course longue ?",
+        "Petit-déjeuner idéal avant une course ?",
+        "Comment éviter les crampes ?",
+        "Faut-il prendre des compléments alimentaires ?",
+        "Combien boire par jour quand on s'entraîne ?",
     ],
     
     # ==================== ÉQUIPEMENT ====================
     "equipement": [
-        "Tes chaussures ont combien de km ?",
-        "Tu veux des conseils pour choisir ta prochaine paire ?",
-        "Tu connais ton type de foulée ?",
-        "Tu veux qu'on parle montres GPS ?",
-        "T'as une tenue adaptée à toutes les conditions ?",
-        "Tu veux des conseils pour éviter les ampoules ?",
-        "Tu cours avec des chaussettes techniques ?",
-        "T'as besoin d'équipement pour le trail ?",
-        "Tu veux des recommandations de marques ?",
-        "Tu portes des vêtements techniques ou du coton ?",
-        "T'as une frontale pour courir le soir ?",
-        "Tu veux des conseils pour l'entretien de tes chaussures ?",
+        "Quand changer mes chaussures de running ?",
+        "Comment choisir ma prochaine paire de chaussures ?",
+        "Quel équipement pour courir sous la pluie ?",
+        "Comment éviter les ampoules ?",
+        "Quelle montre GPS recommandes-tu ?",
+        "Quels vêtements techniques privilégier ?",
+        "Comment entretenir mes chaussures de running ?",
+        "Quel équipement pour le trail ?",
+        "Comment choisir mes chaussettes de course ?",
+        "Faut-il des chaussures différentes selon le terrain ?",
+        "Comment habiller pour courir par grand froid ?",
+        "Quels accessoires vraiment utiles pour courir ?",
     ],
     
     # ==================== GÉNÉRAL / FALLBACK ====================
     "general": [
-        "Tu veux qu'on parle de ta dernière sortie ?",
-        "Tu as une question sur ta récup ou ton allure ?",
-        "Comment tu te sens aujourd'hui ?",
-        "Tu as une sortie prévue bientôt ?",
-        "Tu veux un plan pour la semaine ?",
-        "Tu as un objectif de course en ce moment ?",
-        "Tu veux qu'on analyse tes stats récentes ?",
-        "Tu as des douleurs ou gênes à signaler ?",
-        "Tu veux des conseils pour progresser ?",
-        "Tu cours combien de fois par semaine ?",
-        "Tu préfères parler entraînement, récup ou nutrition ?",
-        "Tu veux qu'on fixe un objectif ensemble ?",
+        "Analyse ma dernière sortie ?",
+        "Conseil pour ma récup globale ?",
+        "Plan pour la semaine prochaine ?",
+        "Comment progresser sur mon allure ?",
+        "Comment améliorer ma technique de course ?",
+        "Quels objectifs me fixer ?",
+        "Comment équilibrer vie perso et entraînement ?",
+        "Quels sont mes axes de progression ?",
+        "Comment me préparer pour ma prochaine course ?",
+        "Comment interpréter mes données d'entraînement ?",
+        "Quels conseils pour un coureur de mon niveau ?",
+        "Comment structurer ma semaine d'entraînement ?",
     ],
     
     # ==================== FALLBACK ====================
     "fallback": [
-        "Tu veux qu'on parle de ton entraînement ?",
-        "Tu as une sortie prévue bientôt ?",
-        "Comment tu te sens en ce moment ?",
-        "Tu veux un plan pour la semaine ?",
-        "Tu as des questions sur ta forme actuelle ?",
-        "Tu veux qu'on analyse ta dernière séance ?",
-        "Tu as un objectif de course ?",
-        "Tu veux des conseils pour progresser ?",
-        "Tu préfères parler récup, allure ou plan ?",
-        "Tu cours combien de fois par semaine en général ?",
-        "Tu veux qu'on regarde tes zones cardiaques ?",
-        "Tu as besoin de motivation ou de conseils techniques ?",
+        "Comment améliorer ma récup ?",
+        "Plan pour la semaine prochaine ?",
+        "Comment progresser en course à pied ?",
+        "Analyse de ma dernière séance ?",
+        "Conseils pour éviter les blessures ?",
+        "Comment augmenter mon volume ?",
+        "Quelle séance faire demain ?",
+        "Comment améliorer ma cadence ?",
+        "Quels exercices de renforcement faire ?",
+        "Comment mieux gérer mes zones cardiaques ?",
+        "Conseils nutrition pour coureur ?",
+        "Comment rester motivé ?",
     ],
 }
 
@@ -1767,7 +1768,8 @@ CATEGORY_SUGGESTION_MAP = {
 
 def get_personalized_suggestions(category: str, context: Dict, num_suggestions: int = 4) -> List[str]:
     """
-    Génère 3-5 suggestions personnalisées basées sur la catégorie et le contexte utilisateur.
+    Génère 3-5 suggestions personnalisées (questions que l'USER peut poser au COACH).
+    Personnalise avec les données user quand disponibles.
     """
     # Récupérer la catégorie de suggestions
     suggestion_category = CATEGORY_SUGGESTION_MAP.get(category, "fallback")
@@ -1776,38 +1778,57 @@ def get_personalized_suggestions(category: str, context: Dict, num_suggestions: 
     # Créer une liste de suggestions personnalisées
     personalized = []
     
-    # Suggestions personnalisées basées sur le contexte
+    # Extraire le contexte utilisateur
     jours_course = context.get("jours_course")
     objectif = context.get("objectif_nom", "")
     cadence = context.get("cadence", 0)
     ratio = context.get("ratio", 1.0)
     km_semaine = context.get("km_semaine", 0)
     nb_seances = context.get("nb_seances", 0)
+    allure = context.get("allure", "")
+    zones = context.get("zones", {})
     
-    # Si course proche, ajouter des suggestions spécifiques
-    if jours_course and jours_course <= 14:
+    # Suggestions personnalisées basées sur le contexte
+    
+    # Si course proche avec objectif défini
+    if jours_course and jours_course > 0 and jours_course <= 30:
         if objectif:
-            personalized.append(f"Tu veux un plan pour {objectif} dans {jours_course} jours ?")
+            personalized.append(f"Comment bien préparer {objectif} ?")
+            if jours_course <= 7:
+                personalized.append(f"Quoi faire cette dernière semaine avant {objectif} ?")
+            elif jours_course <= 14:
+                personalized.append(f"Comment gérer les {jours_course} derniers jours avant {objectif} ?")
         else:
-            personalized.append(f"Tu veux qu'on prépare les {jours_course} derniers jours avant ta course ?")
-        personalized.append("On parle de ta stratégie de course ?")
+            personalized.append(f"Comment préparer ma course dans {jours_course} jours ?")
     
-    # Si cadence basse
+    # Si cadence basse (< 165)
     if 0 < cadence < 165:
-        personalized.append("Tu veux des exercices pour améliorer ta cadence ?")
+        personalized.append("Comment améliorer ma cadence de course ?")
+        personalized.append("Quels drills pour augmenter ma cadence ?")
     
     # Si ratio élevé (surcharge)
     if ratio > 1.3:
-        personalized.append("Tu veux qu'on allège le plan cette semaine ?")
-        personalized.append("On parle de ta récupération ?")
+        personalized.append("Comment mieux récupérer cette semaine ?")
+        personalized.append("Dois-je réduire le volume ?")
+    
+    # Si beaucoup de Z3 (tempo) et peu de Z1-Z2 (endurance)
+    z1z2 = zones.get("z1", 0) + zones.get("z2", 0)
+    z3 = zones.get("z3", 0)
+    if z3 > 50 and z1z2 < 30:
+        personalized.append("Comment équilibrer mes zones d'entraînement ?")
+        personalized.append("Comment travailler plus en endurance fondamentale ?")
+    
+    # Si volume élevé
+    if km_semaine >= 40:
+        personalized.append("Comment maintenir ce volume sans me blesser ?")
     
     # Si peu de séances
-    if nb_seances < 2:
-        personalized.append("Tu veux un plan adapté à ton emploi du temps ?")
+    if 0 < nb_seances < 3:
+        personalized.append("Comment optimiser avec peu de séances par semaine ?")
     
-    # Si bon volume
-    if km_semaine >= 30:
-        personalized.append("Tu veux qu'on analyse ta progression ce mois-ci ?")
+    # Si allure connue
+    if allure and allure != "N/A":
+        personalized.append(f"Comment améliorer mon allure de {allure}/km ?")
     
     # Compléter avec des suggestions de base (randomisées)
     remaining_needed = num_suggestions - len(personalized)
