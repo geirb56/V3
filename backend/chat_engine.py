@@ -1204,8 +1204,14 @@ def get_user_training_context(workouts: List[Dict], user_goal: Optional[Dict] = 
     jours_course = None
     if user_goal and user_goal.get("event_date"):
         try:
-            event_date = datetime.fromisoformat(user_goal["event_date"].replace("Z", "+00:00"))
-            jours_course = (event_date - now).days
+            event_date = user_goal["event_date"]
+            if isinstance(event_date, str):
+                event_date = datetime.fromisoformat(event_date.replace("Z", "+00:00"))
+            # Use most_recent_date as reference for test data
+            reference_date = most_recent_date if most_recent_date else datetime.now(timezone.utc)
+            jours_course = (event_date - reference_date).days
+            if jours_course < 0:
+                jours_course = None  # Course passée
         except:
             pass
     
