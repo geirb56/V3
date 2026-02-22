@@ -30,6 +30,7 @@ const ChatCoach = ({ isOpen, onClose, userId = "default" }) => {
   const [loading, setLoading] = useState(false);
   const [subscriptionStatus, setSubscriptionStatus] = useState(null);
   const [checkingStatus, setCheckingStatus] = useState(true);
+  const [currentSuggestions, setCurrentSuggestions] = useState([]);
   
   const messagesEndRef = useRef(null);
 
