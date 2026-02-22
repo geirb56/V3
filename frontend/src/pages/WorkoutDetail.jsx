@@ -17,7 +17,12 @@ import {
   Loader2,
   Bike,
   Footprints,
-  HeartPulse
+  HeartPulse,
+  Sparkles,
+  Target,
+  AlertTriangle,
+  History,
+  Clock
 } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
