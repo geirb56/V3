@@ -253,7 +253,7 @@ TEMPLATES = {
     
     # ==================== CATÉGORIE 5: ANALYSE SEMAINE ====================
     "analyse_semaine": {
-        "keywords": ["semaine", "bilan", "résumé", "analyse", "comment", "ça va", "forme", "état", "review", "point"],
+        "keywords": ["semaine", "bilan", "résumé", "analyse", "comment", "ça va", "forme", "état", "review", "point", "zones", "cardiaques", "cardiaque", "intensité", "endurance", "tempo"],
         "intros": [
             "Faisons le point sur ta semaine ! 📊",
             "Allez, je t'analyse tout ça !",
