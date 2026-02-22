@@ -1503,7 +1503,7 @@ def generate_response(message: str, context: Dict, category: str = None) -> str:
         # Réponse générique pour les messages courts non reconnus
         short_responses = [
             f"J'ai pas bien compris \"{message}\" 🤔 Tu peux me donner plus de détails ?",
-            f"Hmm, \"{message}\"... tu veux dire quoi exactement ? Dis-moi en plus !",
+            f"Hmm, \"{message}\"... tu veux dire quoi exactement ?",
             f"Je suis pas sûr de comprendre. Tu parles de ton entraînement ?",
             f"Peux-tu préciser un peu ? Je suis là pour t'aider sur la course ! 🏃",
         ]
@@ -1516,17 +1516,16 @@ def generate_response(message: str, context: Dict, category: str = None) -> str:
     # Récupérer les templates de la catégorie
     templates = TEMPLATES.get(category, TEMPLATES["fallback"])
     
-    # Sélection aléatoire de chaque bloc
+    # Sélection aléatoire de chaque bloc (SANS les relances)
     intro = random.choice(templates["intros"])
     analyse = random.choice(templates["analyses"])
     conseil = random.choice(templates["conseils"])
-    relance = random.choice(templates["relances"])
+    # NOTE: Plus de relance - les suggestions remplacent les relances
     
     # Remplir les templates avec le contexte
     intro = fill_template(intro, context)
     analyse = fill_template(analyse, context)
     conseil = fill_template(conseil, context)
-    relance = fill_template(relance, context)
     
     # Ajouts conditionnels
     extras = []
@@ -1541,15 +1540,16 @@ def generate_response(message: str, context: Dict, category: str = None) -> str:
     
     # Si course proche
     if context.get("jours_course") and context["jours_course"] <= 14:
-        extras.append(f"🎯 Plus que {context['jours_course']} jours avant ta course ! On est dans la dernière ligne droite.")
+        objectif = context.get("objectif_nom", "ta course")
+        extras.append(f"🎯 Plus que {context['jours_course']} jours avant {objectif} ! On est dans la dernière ligne droite.")
     
-    # Assemblage final
+    # Assemblage final (SANS relance à la fin)
     parts = [intro, "", analyse]
     
     if extras:
         parts.extend(["", " ".join(extras)])
     
-    parts.extend(["", conseil, "", relance])
+    parts.extend(["", conseil])
     
     return "\n".join(parts).strip()
 
