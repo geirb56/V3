@@ -87,6 +87,7 @@ export default function Digest() {
   const { t, lang } = useLanguage();
   const navigate = useNavigate();
   const [review, setReview] = useState(null);
+  const [ragReview, setRagReview] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState("current"); // "current" or "history"
@@ -112,8 +113,12 @@ export default function Digest() {
     }
     
     try {
-      const res = await axios.get(`${API}/coach/digest?user_id=${USER_ID}&language=${lang}`);
+      const [res, ragRes] = await Promise.all([
+        axios.get(`${API}/coach/digest?user_id=${USER_ID}&language=${lang}`),
+        axios.get(`${API}/rag/weekly-review`).catch(() => ({ data: null }))
+      ]);
       setReview(res.data);
+      setRagReview(ragRes.data);
     } catch (error) {
       console.error("Failed to load review:", error);
     } finally {
