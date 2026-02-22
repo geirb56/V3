@@ -494,6 +494,8 @@ export default function Digest() {
         <MessageCircle className="w-4 h-4" />
         <span>{t("digest.askCoach")}</span>
       </Button>
+        </>
+      )}
     </div>
   );
 }
