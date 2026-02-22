@@ -1352,6 +1352,25 @@ def fill_template(template: str, context: Dict) -> str:
 def generate_response(message: str, context: Dict, category: str = None) -> str:
     """Génère une réponse complète basée sur le message et le contexte"""
     
+    # D'abord, vérifier si c'est une réponse courte (réponse à une question précédente)
+    message_lower = message.lower().strip()
+    
+    # Vérifier les réponses courtes connues
+    for key, response_data in SHORT_RESPONSES.items():
+        if message_lower == key or message_lower.startswith(key + " ") or message_lower.endswith(" " + key):
+            return f"{response_data['response']}\n\n{response_data['relance']}"
+    
+    # Si le message est très court (< 15 caractères) et pas reconnu, être plus accueillant
+    if len(message_lower) < 15 and not any(kw in message_lower for cat in TEMPLATES.values() for kw in cat.get("keywords", [])):
+        # Réponse générique pour les messages courts non reconnus
+        short_responses = [
+            f"J'ai pas bien compris \"{message}\" 🤔 Tu peux me donner plus de détails ?",
+            f"Hmm, \"{message}\"... tu veux dire quoi exactement ? Dis-moi en plus !",
+            f"Je suis pas sûr de comprendre. Tu parles de ton entraînement ?",
+            f"Peux-tu préciser un peu ? Je suis là pour t'aider sur la course ! 🏃",
+        ]
+        return random.choice(short_responses)
+    
     # Détection d'intention si pas de catégorie fournie
     if not category:
         category, confidence = detect_intent(message)
