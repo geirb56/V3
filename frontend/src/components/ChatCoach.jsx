@@ -147,6 +147,7 @@ const ChatCoach = ({ isOpen, onClose, userId = "default" }) => {
     try {
       await axios.delete(`${API}/chat/history?user_id=${userId}`);
       setMessages([]);
+      setCurrentSuggestions([]);
     } catch (err) {
       console.error("Error clearing history:", err);
     }
