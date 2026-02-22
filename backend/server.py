@@ -2692,6 +2692,106 @@ async def get_digest_history(user_id: str = "default", limit: int = 10, skip: in
     }
 
 
+# ========== RAG-ENRICHED ENDPOINTS ==========
+
+@api_router.get("/rag/dashboard")
+async def get_rag_dashboard(user_id: str = "default"):
+    """Get RAG-enriched dashboard summary"""
+    # Fetch workouts (last 60 days)
+    workouts = await db.workouts.find(
+        {"user_id": user_id},
+        {"_id": 0}
+    ).sort("date", -1).limit(100).to_list(length=100)
+    
+    # Fetch previous bilans
+    bilans = await db.digests.find(
+        {"user_id": user_id},
+        {"_id": 0}
+    ).sort("generated_at", -1).limit(8).to_list(length=8)
+    
+    # Fetch user goal
+    user_goal = await db.user_goals.find_one({"user_id": user_id}, {"_id": 0})
+    
+    # Generate RAG-enriched summary
+    result = generate_dashboard_rag(workouts, bilans, user_goal)
+    
+    return {
+        "rag_summary": result["summary"],
+        "metrics": result["metrics"],
+        "points_forts": result["points_forts"],
+        "points_ameliorer": result["points_ameliorer"],
+        "tips": result["tips"],
+        "generated_at": datetime.now(timezone.utc).isoformat()
+    }
+
+
+@api_router.get("/rag/weekly-review")
+async def get_rag_weekly_review(user_id: str = "default"):
+    """Get RAG-enriched weekly review"""
+    # Fetch workouts (last 30 days)
+    workouts = await db.workouts.find(
+        {"user_id": user_id},
+        {"_id": 0}
+    ).sort("date", -1).limit(50).to_list(length=50)
+    
+    # Fetch previous bilans
+    bilans = await db.digests.find(
+        {"user_id": user_id},
+        {"_id": 0}
+    ).sort("generated_at", -1).limit(8).to_list(length=8)
+    
+    # Fetch user goal
+    user_goal = await db.user_goals.find_one({"user_id": user_id}, {"_id": 0})
+    
+    # Generate RAG-enriched review
+    result = generate_weekly_review_rag(workouts, bilans, user_goal)
+    
+    return {
+        "rag_summary": result["summary"],
+        "metrics": result["metrics"],
+        "comparison": result["comparison"],
+        "points_forts": result["points_forts"],
+        "points_ameliorer": result["points_ameliorer"],
+        "tips": result["tips"],
+        "generated_at": datetime.now(timezone.utc).isoformat()
+    }
+
+
+@api_router.get("/rag/workout/{workout_id}")
+async def get_rag_workout_analysis(workout_id: str, user_id: str = "default"):
+    """Get RAG-enriched workout analysis"""
+    # Fetch the workout
+    workout = await db.workouts.find_one(
+        {"user_id": user_id, "id": workout_id},
+        {"_id": 0}
+    )
+    
+    if not workout:
+        raise HTTPException(status_code=404, detail="Workout not found")
+    
+    # Fetch all workouts for comparison
+    all_workouts = await db.workouts.find(
+        {"user_id": user_id},
+        {"_id": 0}
+    ).sort("date", -1).limit(100).to_list(length=100)
+    
+    # Fetch user goal
+    user_goal = await db.user_goals.find_one({"user_id": user_id}, {"_id": 0})
+    
+    # Generate RAG-enriched analysis
+    result = generate_workout_analysis_rag(workout, all_workouts, user_goal)
+    
+    return {
+        "rag_summary": result["summary"],
+        "workout": result["workout"],
+        "comparison": result["comparison"],
+        "points_forts": result["points_forts"],
+        "points_ameliorer": result["points_ameliorer"],
+        "tips": result["tips"],
+        "generated_at": datetime.now(timezone.utc).isoformat()
+    }
+
+
 # ========== MOBILE-FIRST WORKOUT ANALYSIS ==========
 
 MOBILE_ANALYSIS_PROMPT_EN = """You are a calm running coach giving quick feedback on a workout.
