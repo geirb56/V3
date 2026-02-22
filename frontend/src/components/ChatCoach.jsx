@@ -129,6 +129,13 @@ const ChatCoach = ({ isOpen, onClose, userId = "default" }) => {
     }
   };
 
+  const handleSuggestionClick = (suggestion) => {
+    setInput(suggestion);
+    // Optionally auto-send
+    // setInput(suggestion);
+    // setTimeout(() => handleSend(), 100);
+  };
+
   const handleKeyPress = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
