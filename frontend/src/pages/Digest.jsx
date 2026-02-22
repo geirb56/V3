@@ -491,6 +491,83 @@ export default function Digest() {
         </Card>
       )}
 
+      {/* RAG ENRICHED INSIGHTS - NEW */}
+      {ragReview && (
+        <Card className="bg-card border-border mb-4" data-testid="rag-weekly-card">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Sparkles className="w-4 h-4 text-amber-400" />
+              <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">
+                {lang === "fr" ? "Analyse RAG personnalisée" : "Personalized RAG Analysis"}
+              </p>
+            </div>
+            
+            {/* RAG Summary */}
+            <p className="font-mono text-xs text-muted-foreground leading-relaxed mb-3 whitespace-pre-line" data-testid="rag-weekly-summary">
+              {ragReview.rag_summary?.split('\n').slice(0, 5).join('\n')}
+            </p>
+            
+            {/* RAG Metrics inline */}
+            {ragReview.metrics && (
+              <div className="flex items-center gap-4 mb-3 p-2 bg-muted/30 rounded-sm">
+                <div className="text-center">
+                  <p className="font-mono text-sm font-bold">{ragReview.metrics.km_total}</p>
+                  <p className="font-mono text-[8px] text-muted-foreground uppercase">km</p>
+                </div>
+                <div className="text-center">
+                  <p className="font-mono text-sm font-bold">{ragReview.metrics.nb_seances}</p>
+                  <p className="font-mono text-[8px] text-muted-foreground uppercase">
+                    {lang === "fr" ? "séances" : "sessions"}
+                  </p>
+                </div>
+                <div className="text-center">
+                  <p className="font-mono text-sm font-bold">{ragReview.metrics.allure_moy}</p>
+                  <p className="font-mono text-[8px] text-muted-foreground uppercase">/km</p>
+                </div>
+                <div className="text-center">
+                  <p className="font-mono text-sm font-bold">{ragReview.metrics.duree_totale}</p>
+                  <p className="font-mono text-[8px] text-muted-foreground uppercase">
+                    {lang === "fr" ? "durée" : "time"}
+                  </p>
+                </div>
+              </div>
+            )}
+            
+            {/* Comparison badge */}
+            {ragReview.comparison?.vs_prev_week && (
+              <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-sm ${
+                ragReview.comparison.vs_prev_week.includes('+') ? 'bg-emerald-500/10 text-emerald-400' : 'bg-blue-500/10 text-blue-400'
+              }`}>
+                {ragReview.comparison.vs_prev_week.includes('+') ? (
+                  <TrendingUp className="w-3 h-3" />
+                ) : (
+                  <TrendingDown className="w-3 h-3" />
+                )}
+                <span className="font-mono text-[10px]">{ragReview.comparison.vs_prev_week}</span>
+              </div>
+            )}
+
+            {/* Points forts & améliorer */}
+            {(ragReview.points_forts?.length > 0 || ragReview.points_ameliorer?.length > 0) && (
+              <div className="mt-3 pt-3 border-t border-border flex flex-wrap gap-2">
+                {ragReview.points_forts?.slice(0, 2).map((point, i) => (
+                  <span key={`fort-${i}`} className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-500/10 text-emerald-400 rounded-sm">
+                    <Target className="w-3 h-3" />
+                    <span className="font-mono text-[10px]">{point}</span>
+                  </span>
+                ))}
+                {ragReview.points_ameliorer?.slice(0, 1).map((point, i) => (
+                  <span key={`ameliorer-${i}`} className="inline-flex items-center gap-1 px-2 py-1 bg-amber-500/10 text-amber-400 rounded-sm">
+                    <AlertTriangle className="w-3 h-3" />
+                    <span className="font-mono text-[10px]">{point}</span>
+                  </span>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* CARTE 6 - Question au Coach (Optionnel) */}
       <Button
         onClick={() => navigate("/coach")}
