@@ -219,13 +219,10 @@ TEMPLATES = {
         "analyses": [
             "Cette semaine t'as fait {km_semaine} km sur {nb_seances} séances. {analyse_semaine}",
             "Ton ratio charge/récup est de {ratio}, donc {ratio_implication} pour la suite.",
-            "Ta dernière séance intense remonte à {derniere_intense}. {planning_conseil}",
             "En regardant tes zones cette semaine : {zones_resume}. {zones_conseil}",
-            "T'es à {pourcentage_objectif}% de ton objectif hebdo. {objectif_comment}",
             "Vu ta charge actuelle ({charge}), {charge_recommandation}.",
             "Ton corps a bien absorbé {km_semaine} km, {adaptation_comment}.",
             "La répartition intensité/endurance cette semaine est {repartition}. {repartition_comment}",
-            "Avec {jours_restants} jours avant ta course, {course_planning}.",
             "Ta progression sur le dernier mois montre {progression}. On peut {progression_action}."
         ],
         "conseils": [
