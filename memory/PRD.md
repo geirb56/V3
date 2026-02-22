@@ -491,17 +491,16 @@ User should always know: "Am I doing too much?", "Am I doing too little?", "What
 - Stripe integration (test mode: sk_test_emergent)
 
 **Hybrid Chat Coach:**
-1. **Primary: WebLLM (SmolLM2 1.7B-Instruct)**
-   - On-device AI inference using WebGPU
-   - 100% private, offline after initial download
-   - ~1.3GB model download (one-time)
-   - Available for premium users with WebGPU-capable browsers
-
-2. **Fallback: Python Rule-Based Engine**
+1. **Primary: Python Rule-Based Engine** (Recommended)
    - `/app/backend/chat_engine.py`
    - Keyword detection + template-based responses
+   - High-quality French coaching responses
    - Works for all users and browsers
-   - French-first, coach tone
+
+2. **WebLLM (Disabled by default)**
+   - Small models (135M-360M) produce incoherent responses
+   - Larger models crash on mobile devices
+   - WebLLM code remains for future improvements
 
 **Chat Engine Features:**
 - Keyword categories: fatigue, allure, cadence, recuperation, plan, blessure, objectif, zones, semaine
@@ -511,21 +510,36 @@ User should always know: "Am I doing too much?", "Am I doing too little?", "What
 
 **UI Components:**
 - `/app/frontend/src/pages/Subscription.jsx` - 4-tier subscription grid
-- `/app/frontend/src/components/ChatCoach.jsx` - Hybrid chat with WebLLM
-- Status indicators: "Local" (WebGPU), "Serveur" (fallback), "GPU" (available)
+- `/app/frontend/src/components/ChatCoach.jsx` - Chat using Python backend
+- Status indicators show "Serveur" for backend responses
 
 **Technical Notes:**
 - babel-metadata-plugin.js excludes Subscription.jsx and Progress.jsx to prevent infinite recursion
-- @mlc-ai/web-llm v0.2.81 installed for WebLLM support
+- @mlc-ai/web-llm v0.2.81 installed (disabled due to quality issues)
 
 **Test Report:** `/app/test_reports/iteration_18.json` (100% pass rate - backend + frontend)
+
+### Phase 18 - WEEKLY REVIEW HISTORY (Feb 22, 2026) ✅
+**Historique des bilans hebdomadaires**
+
+**Features:**
+- New endpoint `/api/coach/digest/history` to fetch past weekly reviews
+- Tabs in Bilan page: "Cette semaine" (current) and "Historique" (past)
+- History shows: date, period, sessions count, km, coach summary
+- Pagination support with "Charger plus" button
+- Clean card-based UI matching app design
+
+**Files:**
+- `/app/backend/server.py` - Added `/api/coach/digest/history` endpoint
+- `/app/frontend/src/pages/Digest.jsx` - Added history tab and view
 
 ### P0 - Completed ✅
 - ✅ Strava API integration structure
 - ✅ Weekly Digest + Executive Summary
 - ✅ **LOCAL ANALYSIS ENGINE (Feb 20, 2026)** - CRITICAL MIGRATION COMPLETE
 - ✅ **MULTI-TIER SUBSCRIPTION (Feb 21, 2026)** - 4 tiers, Stripe integration
-- ✅ **HYBRID CHAT COACH (Feb 21, 2026)** - WebLLM + Python fallback
+- ✅ **CHAT COACH (Feb 21, 2026)** - Python rule-based engine
+- ✅ **WEEKLY REVIEW HISTORY (Feb 22, 2026)** - Historique des bilans
 
 ### P1 - High Priority (Next)
 - Add real Strava API credentials to enable actual workout import
