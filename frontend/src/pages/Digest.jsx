@@ -186,31 +186,152 @@ export default function Digest() {
   const userGoal = review?.user_goal;
   const daysUntil = userGoal ? calculateDaysUntil(userGoal.event_date) : null;
 
+  // Format date for history items
+  const formatHistoryDate = (dateStr) => {
+    if (!dateStr) return "";
+    const date = new Date(dateStr);
+    const locale = lang === "fr" ? "fr-FR" : "en-US";
+    return date.toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" });
+  };
+
+  // Render history view
+  const renderHistory = () => {
+    if (historyLoading && history.length === 0) {
+      return (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-6 h-6 animate-spin text-primary" />
+        </div>
+      );
+    }
+
+    if (history.length === 0) {
+      return (
+        <div className="text-center py-12">
+          <History className="w-10 h-10 mx-auto mb-3 text-muted-foreground/50" />
+          <p className="text-muted-foreground text-sm">
+            {lang === "fr" ? "Aucun bilan précédent" : "No previous reviews"}
+          </p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-3">
+        {history.map((digest, index) => (
+          <Card key={index} className="bg-card border-border">
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between mb-2">
+                <div>
+                  <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                    {formatHistoryDate(digest.generated_at)}
+                  </p>
+                  <p className="font-mono text-[9px] text-muted-foreground/70">
+                    {digest.period_start && digest.period_end && (
+                      <>
+                        {new Date(digest.period_start).toLocaleDateString(lang === "fr" ? "fr-FR" : "en-US", { day: "numeric", month: "short" })}
+                        {" - "}
+                        {new Date(digest.period_end).toLocaleDateString(lang === "fr" ? "fr-FR" : "en-US", { day: "numeric", month: "short" })}
+                      </>
+                    )}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 text-right">
+                  <div>
+                    <p className="font-mono text-sm font-bold">{digest.metrics?.total_sessions || 0}</p>
+                    <p className="font-mono text-[8px] uppercase text-muted-foreground">
+                      {lang === "fr" ? "séances" : "sessions"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="font-mono text-sm font-bold">{Math.round(digest.metrics?.total_km || 0)}</p>
+                    <p className="font-mono text-[8px] uppercase text-muted-foreground">km</p>
+                  </div>
+                </div>
+              </div>
+              <p className="font-mono text-xs leading-relaxed text-muted-foreground line-clamp-2">
+                {digest.coach_summary || "-"}
+              </p>
+            </CardContent>
+          </Card>
+        ))}
+        
+        {hasMoreHistory && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => loadHistory(true)}
+            disabled={historyLoading}
+            className="w-full"
+          >
+            {historyLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              lang === "fr" ? "Charger plus" : "Load more"
+            )}
+          </Button>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="p-4 md:p-8 pb-24 md:pb-8 max-w-lg mx-auto" data-testid="digest-page">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="font-heading text-xl md:text-2xl uppercase tracking-tight font-bold mb-0.5">
             {t("digest.title")}
           </h1>
-          <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-            {formatDateRange()}
-          </p>
+          {activeTab === "current" && (
+            <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+              {formatDateRange()}
+            </p>
+          )}
         </div>
+        {activeTab === "current" && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => loadReview(true)}
+            disabled={refreshing}
+            data-testid="refresh-review"
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
+          </Button>
+        )}
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-2 mb-4">
         <Button
-          variant="ghost"
+          variant={activeTab === "current" ? "default" : "outline"}
           size="sm"
-          onClick={() => loadReview(true)}
-          disabled={refreshing}
-          data-testid="refresh-review"
-          className="text-muted-foreground hover:text-foreground"
+          onClick={() => setActiveTab("current")}
+          className="flex-1"
+          data-testid="tab-current"
         >
-          <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
+          <Calendar className="w-4 h-4 mr-2" />
+          {lang === "fr" ? "Cette semaine" : "This week"}
+        </Button>
+        <Button
+          variant={activeTab === "history" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setActiveTab("history")}
+          className="flex-1"
+          data-testid="tab-history"
+        >
+          <History className="w-4 h-4 mr-2" />
+          {lang === "fr" ? "Historique" : "History"}
         </Button>
       </div>
 
-      {/* User Goal Context - if exists */}
+      {/* History Tab Content */}
+      {activeTab === "history" ? (
+        renderHistory()
+      ) : (
+        <>
+          {/* User Goal Context - if exists */}
       {userGoal && daysUntil && (
         <Card className="bg-amber-500/5 border-amber-500/20 mb-4">
           <CardContent className="p-3">
