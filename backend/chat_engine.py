@@ -1421,6 +1421,24 @@ def detect_intent(message: str) -> Tuple[str, float]:
 # GÉNÉRATION DE RÉPONSE (100% déterministe, templates + random)
 # ============================================================
 
+def _get_zones_verdict(zones: Dict) -> str:
+    """Génère un verdict sur la répartition des zones"""
+    z1z2 = zones.get("z1", 0) + zones.get("z2", 0)
+    z3 = zones.get("z3", 0)
+    z4z5 = zones.get("z4", 0) + zones.get("z5", 0)
+    
+    if z1z2 >= 60:
+        return "Très bonne base d'endurance, continue comme ça !"
+    elif z1z2 >= 40:
+        return "Bon équilibre entre endurance et intensité."
+    elif z3 >= 50:
+        return "Beaucoup de tempo, pense à faire plus d'endurance fondamentale."
+    elif z4z5 >= 30:
+        return "Pas mal d'intensité ! Assure-toi de bien récupérer."
+    else:
+        return "Continue à varier tes séances !"
+
+
 def fill_template(template: str, context: Dict) -> str:
     """Remplit un template avec les données du contexte"""
     # Créer un dictionnaire de remplacement avec des valeurs par défaut
