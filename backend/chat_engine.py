@@ -1511,6 +1511,356 @@ def generate_response(message: str, context: Dict, category: str = None) -> str:
 
 
 # ============================================================
+# SUGGESTIONS INTELLIGENTES (3-5 questions par réponse)
+# ============================================================
+
+SUGGESTED_QUESTIONS = {
+    # ==================== FATIGUE / LOURDEUR ====================
+    "fatigue": [
+        "Tu veux un conseil pour mieux récupérer demain ?",
+        "T'as senti tes jambes lourdes dès le début ou seulement à la fin ?",
+        "Hydratation et sommeil au top cette semaine ?",
+        "On regarde ensemble un plan plus cool pour les prochains jours ?",
+        "Tu as déjà eu ce genre de lourdeur avant ?",
+        "Tu veux qu'on analyse ta charge des dernières semaines ?",
+        "T'as ressenti des courbatures aussi ou juste de la fatigue ?",
+        "Tu dors bien en ce moment ?",
+        "On planifie une semaine de récup ?",
+        "Tu veux des conseils nutrition pour mieux récupérer ?",
+        "T'as des signes de surentraînement à me décrire ?",
+        "On baisse le volume cette semaine ?",
+    ],
+    
+    # ==================== ALLURE / CADENCE ====================
+    "allure_cadence": [
+        "Tu veux des drills pour booster ta cadence ?",
+        "Tu cours souvent sur terrain vallonné ou plat ?",
+        "On ajuste tes paces cibles pour la prochaine sortie ?",
+        "Tu sens une différence quand tu forces sur la cadence ?",
+        "Tu veux un exercice spécifique pour améliorer ta foulée ?",
+        "T'as une montre qui affiche la cadence en direct ?",
+        "On travaille l'allure spécifique cette semaine ?",
+        "Tu veux qu'on calcule tes zones d'allure ?",
+        "Tu fais déjà des gammes ou du travail technique ?",
+        "Tu préfères bosser le fractionné court ou long ?",
+        "On intègre des côtes pour améliorer naturellement ?",
+        "Tu veux un plan avec du travail de foulée ?",
+    ],
+    
+    # ==================== PLAN / PRÉPA COURSE ====================
+    "plan": [
+        "Tu veux un plan détaillé pour la semaine prochaine ?",
+        "On augmente le volume ou on reste stable ?",
+        "Ton objectif reste le même ou tu veux ajuster ?",
+        "Tu préfères un plan trail ou route ?",
+        "Tu veux qu'on cale les séances qualité quels jours ?",
+        "On intègre une sortie longue ce week-end ?",
+        "Tu veux un plan spécifique pour ton objectif ?",
+        "Combien de séances tu peux faire cette semaine ?",
+        "On ajoute du fractionné dans ton plan ?",
+        "Tu préfères des séances courtes et intenses ou longues et cool ?",
+        "On planifie aussi la semaine d'après ?",
+        "Tu veux que je t'envoie un récap du plan ?",
+    ],
+    
+    # ==================== PRÉPA COURSE (proche) ====================
+    "prepa_course": [
+        "Tu veux un plan spécifique pour ta course ?",
+        "On fait le point sur ta stratégie de course ?",
+        "Tu as prévu ta nutrition pour le jour J ?",
+        "On parle de ta gestion d'allure sur le parcours ?",
+        "Tu connais bien le dénivelé du parcours ?",
+        "Tu veux des conseils pour la dernière semaine avant ?",
+        "On prépare ta checklist d'avant-course ?",
+        "Tu as testé ta tenue et tes chaussures ?",
+        "Tu veux qu'on simule les sensations du jour J ?",
+        "On parle de l'échauffement avant le départ ?",
+        "Tu as une stratégie pour les ravitos ?",
+        "Tu veux des conseils pour gérer le stress d'avant-course ?",
+    ],
+    
+    # ==================== RÉCUPÉRATION / REPOS ====================
+    "recuperation": [
+        "Tu veux des idées pour mieux dormir et récupérer ?",
+        "Tu ressens quoi au réveil après une semaine comme ça ?",
+        "On ajoute une séance de mobilité pour aider la récup ?",
+        "Tu fais du foam roller ou des étirements ?",
+        "Tu veux un programme de récup active ?",
+        "T'as essayé les bains froids ou les douches fraîches ?",
+        "On parle de ta nutrition post-entraînement ?",
+        "Tu prends des jours off complets ?",
+        "Tu veux qu'on calcule ton besoin en récup ?",
+        "T'as des courbatures qui persistent ?",
+        "On planifie une semaine de décharge ?",
+        "Tu veux des conseils pour mieux dormir ?",
+    ],
+    
+    # ==================== ANALYSE SEMAINE ====================
+    "analyse_semaine": [
+        "Tu veux qu'on regarde une séance en détail ?",
+        "On compare avec la semaine dernière ?",
+        "Tu es satisfait de ta semaine globalement ?",
+        "On ajuste les objectifs pour la suite ?",
+        "Tu veux un bilan plus détaillé par zone ?",
+        "On parle de ce qui a bien marché ?",
+        "Tu veux qu'on identifie les points à améliorer ?",
+        "On planifie la semaine prochaine ensemble ?",
+        "T'as des sensations particulières à me décrire ?",
+        "Tu veux qu'on analyse ta progression sur le mois ?",
+        "On regarde l'évolution de ton allure ?",
+        "Tu veux des conseils pour la suite ?",
+    ],
+    
+    # ==================== MOTIVATION ====================
+    "motivation": [
+        "Qu'est-ce qui te motive le plus en ce moment ?",
+        "Tu veux qu'on fixe un petit défi fun pour la prochaine sortie ?",
+        "Tu te sens comment mentalement après cette semaine ?",
+        "Tu veux qu'on change un peu ta routine ?",
+        "T'as essayé de courir en groupe ou avec un pote ?",
+        "On se fixe un mini-objectif atteignable ?",
+        "Tu veux découvrir un nouveau parcours ?",
+        "T'as envie de tester un autre type de séance ?",
+        "On parle de ce qui te bloque en ce moment ?",
+        "Tu veux qu'on planifie une course fun pour te remotiver ?",
+        "T'écoutes de la musique ou des podcasts en courant ?",
+        "Tu veux des conseils pour retrouver l'envie ?",
+    ],
+    
+    # ==================== BLESSURES ====================
+    "blessures": [
+        "Tu veux des exercices de renfo pour prévenir ça ?",
+        "T'as vu un kiné ou un médecin du sport ?",
+        "La douleur est là depuis combien de temps ?",
+        "Tu veux qu'on adapte ton plan en attendant ?",
+        "Ça fait mal aussi au repos ou seulement en courant ?",
+        "Tu veux des conseils pour reprendre en douceur ?",
+        "T'as changé quelque chose récemment (chaussures, terrain) ?",
+        "On parle de renforcement pour éviter les récidives ?",
+        "Tu veux un plan de reprise progressive ?",
+        "T'as des douleurs ailleurs aussi ?",
+        "Tu fais du renfo régulièrement ?",
+        "Tu veux des exercices spécifiques pour cette zone ?",
+    ],
+    
+    # ==================== PROGRESSION / STAGNATION ====================
+    "progression": [
+        "Tu veux qu'on analyse tes dernières courses ?",
+        "On change quelque chose dans ton entraînement ?",
+        "Tu fais du travail de vitesse régulièrement ?",
+        "Tu veux un plan pour casser ce plateau ?",
+        "T'as essayé de varier les types de séances ?",
+        "On parle de ce qui pourrait t'aider à progresser ?",
+        "Tu veux qu'on calcule ta VMA estimée ?",
+        "On ajoute du travail spécifique cette semaine ?",
+        "Tu veux des conseils pour gagner en vitesse ?",
+        "T'as pris assez de repos ces derniers temps ?",
+        "On regarde si ton volume est adapté ?",
+        "Tu veux qu'on analyse ta technique de foulée ?",
+    ],
+    
+    # ==================== NUTRITION ====================
+    "nutrition": [
+        "Tu veux des idées de repas avant une sortie longue ?",
+        "Tu t'hydrates bien pendant l'effort ?",
+        "Tu veux des conseils sur les gels et barres ?",
+        "T'as déjà eu des problèmes digestifs en courant ?",
+        "Tu manges quoi après tes séances ?",
+        "Tu veux un plan nutrition pour ta prochaine course ?",
+        "T'as des crampes régulièrement ?",
+        "Tu veux des conseils pour le petit-déj pré-course ?",
+        "Tu bois combien par jour environ ?",
+        "Tu veux qu'on parle des compléments alimentaires ?",
+        "T'as testé les boissons énergétiques ?",
+        "Tu veux des idées de collations saines ?",
+    ],
+    
+    # ==================== ÉQUIPEMENT ====================
+    "equipement": [
+        "Tes chaussures ont combien de km ?",
+        "Tu veux des conseils pour choisir ta prochaine paire ?",
+        "Tu connais ton type de foulée ?",
+        "Tu veux qu'on parle montres GPS ?",
+        "T'as une tenue adaptée à toutes les conditions ?",
+        "Tu veux des conseils pour éviter les ampoules ?",
+        "Tu cours avec des chaussettes techniques ?",
+        "T'as besoin d'équipement pour le trail ?",
+        "Tu veux des recommandations de marques ?",
+        "Tu portes des vêtements techniques ou du coton ?",
+        "T'as une frontale pour courir le soir ?",
+        "Tu veux des conseils pour l'entretien de tes chaussures ?",
+    ],
+    
+    # ==================== GÉNÉRAL / FALLBACK ====================
+    "general": [
+        "Tu veux qu'on parle de ta dernière sortie ?",
+        "Tu as une question sur ta récup ou ton allure ?",
+        "Comment tu te sens aujourd'hui ?",
+        "Tu as une sortie prévue bientôt ?",
+        "Tu veux un plan pour la semaine ?",
+        "Tu as un objectif de course en ce moment ?",
+        "Tu veux qu'on analyse tes stats récentes ?",
+        "Tu as des douleurs ou gênes à signaler ?",
+        "Tu veux des conseils pour progresser ?",
+        "Tu cours combien de fois par semaine ?",
+        "Tu préfères parler entraînement, récup ou nutrition ?",
+        "Tu veux qu'on fixe un objectif ensemble ?",
+    ],
+    
+    # ==================== FALLBACK ====================
+    "fallback": [
+        "Tu veux qu'on parle de ton entraînement ?",
+        "Tu as une sortie prévue bientôt ?",
+        "Comment tu te sens en ce moment ?",
+        "Tu veux un plan pour la semaine ?",
+        "Tu as des questions sur ta forme actuelle ?",
+        "Tu veux qu'on analyse ta dernière séance ?",
+        "Tu as un objectif de course ?",
+        "Tu veux des conseils pour progresser ?",
+        "Tu préfères parler récup, allure ou plan ?",
+        "Tu cours combien de fois par semaine en général ?",
+        "Tu veux qu'on regarde tes zones cardiaques ?",
+        "Tu as besoin de motivation ou de conseils techniques ?",
+    ],
+}
+
+# Mapping des catégories vers leurs suggestions
+CATEGORY_SUGGESTION_MAP = {
+    "fatigue": "fatigue",
+    "allure_cadence": "allure_cadence",
+    "recuperation": "recuperation",
+    "plan": "plan",
+    "prepa_course": "prepa_course",
+    "analyse_semaine": "analyse_semaine",
+    "motivation": "motivation",
+    "blessures": "blessures",
+    "progression": "progression",
+    "nutrition": "nutrition",
+    "equipement": "equipement",
+    "meteo": "general",
+    "mental": "motivation",
+    "sommeil": "recuperation",
+    "renforcement": "blessures",
+    "chaleur": "general",
+    "post_course": "recuperation",
+    "habitudes": "general",
+    "general": "general",
+    "fallback": "fallback",
+}
+
+
+def get_personalized_suggestions(category: str, context: Dict, num_suggestions: int = 4) -> List[str]:
+    """
+    Génère 3-5 suggestions personnalisées basées sur la catégorie et le contexte utilisateur.
+    """
+    # Récupérer la catégorie de suggestions
+    suggestion_category = CATEGORY_SUGGESTION_MAP.get(category, "fallback")
+    base_suggestions = SUGGESTED_QUESTIONS.get(suggestion_category, SUGGESTED_QUESTIONS["fallback"])
+    
+    # Créer une liste de suggestions personnalisées
+    personalized = []
+    
+    # Suggestions personnalisées basées sur le contexte
+    jours_course = context.get("jours_course")
+    objectif = context.get("objectif_nom", "")
+    cadence = context.get("cadence", 0)
+    ratio = context.get("ratio", 1.0)
+    km_semaine = context.get("km_semaine", 0)
+    nb_seances = context.get("nb_seances", 0)
+    
+    # Si course proche, ajouter des suggestions spécifiques
+    if jours_course and jours_course <= 14:
+        if objectif:
+            personalized.append(f"Tu veux un plan pour {objectif} dans {jours_course} jours ?")
+        else:
+            personalized.append(f"Tu veux qu'on prépare les {jours_course} derniers jours avant ta course ?")
+        personalized.append("On parle de ta stratégie de course ?")
+    
+    # Si cadence basse
+    if 0 < cadence < 165:
+        personalized.append("Tu veux des exercices pour améliorer ta cadence ?")
+    
+    # Si ratio élevé (surcharge)
+    if ratio > 1.3:
+        personalized.append("Tu veux qu'on allège le plan cette semaine ?")
+        personalized.append("On parle de ta récupération ?")
+    
+    # Si peu de séances
+    if nb_seances < 2:
+        personalized.append("Tu veux un plan adapté à ton emploi du temps ?")
+    
+    # Si bon volume
+    if km_semaine >= 30:
+        personalized.append("Tu veux qu'on analyse ta progression ce mois-ci ?")
+    
+    # Compléter avec des suggestions de base (randomisées)
+    remaining_needed = num_suggestions - len(personalized)
+    if remaining_needed > 0:
+        # Filtrer les suggestions déjà ajoutées
+        available = [s for s in base_suggestions if s not in personalized]
+        random.shuffle(available)
+        personalized.extend(available[:remaining_needed])
+    
+    # Limiter à num_suggestions et mélanger
+    result = personalized[:num_suggestions]
+    random.shuffle(result)
+    
+    return result
+
+
+def generate_response_with_suggestions(message: str, context: Dict, category: str = None) -> Dict:
+    """
+    Génère une réponse complète avec suggestions.
+    Retourne un dictionnaire avec 'response' et 'suggestions'.
+    """
+    # D'abord, vérifier si c'est une réponse courte (réponse à une question précédente)
+    message_lower = message.lower().strip()
+    
+    # Vérifier les réponses courtes connues
+    for key, response_data in SHORT_RESPONSES.items():
+        if message_lower == key or message_lower.startswith(key + " ") or message_lower.endswith(" " + key):
+            # Pour les réponses courtes, utiliser des suggestions générales
+            suggestions = get_personalized_suggestions("general", context, num_suggestions=random.randint(3, 4))
+            return {
+                "response": f"{response_data['response']}\n\n{response_data['relance']}",
+                "suggestions": suggestions,
+                "category": "short_response"
+            }
+    
+    # Si le message est très court (< 15 caractères) et pas reconnu
+    if len(message_lower) < 15 and not any(kw in message_lower for cat in TEMPLATES.values() for kw in cat.get("keywords", [])):
+        short_responses = [
+            f"J'ai pas bien compris \"{message}\" 🤔 Tu peux me donner plus de détails ?",
+            f"Hmm, \"{message}\"... tu veux dire quoi exactement ? Dis-moi en plus !",
+            f"Je suis pas sûr de comprendre. Tu parles de ton entraînement ?",
+            f"Peux-tu préciser un peu ? Je suis là pour t'aider sur la course ! 🏃",
+        ]
+        suggestions = get_personalized_suggestions("fallback", context, num_suggestions=random.randint(3, 5))
+        return {
+            "response": random.choice(short_responses),
+            "suggestions": suggestions,
+            "category": "unclear"
+        }
+    
+    # Détection d'intention si pas de catégorie fournie
+    if not category:
+        category, confidence = detect_intent(message)
+    
+    # Générer la réponse principale
+    response_text = generate_response(message, context, category)
+    
+    # Générer les suggestions personnalisées (3 à 5)
+    num_suggestions = random.randint(3, 5)
+    suggestions = get_personalized_suggestions(category, context, num_suggestions)
+    
+    return {
+        "response": response_text,
+        "suggestions": suggestions,
+        "category": category
+    }
+
+
+# ============================================================
 # INTERFACE PRINCIPALE
 # ============================================================
 
