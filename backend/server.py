@@ -3974,9 +3974,10 @@ async def send_chat_message(request: ChatRequest):
         # Client is using WebLLM, we just need to store messages and track count
         response_text = ""  # Client will generate this
     else:
-        # Use Python templates fallback
-        response_text = generate_chat_response(
+        # Use Python RAG engine (100% local, no LLM)
+        response_text = await generate_chat_response(
             message=request.message,
+            user_id=user_id,
             workouts=workouts,
             user_goal=user_goal
         )
