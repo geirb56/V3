@@ -87,10 +87,20 @@ export default function Digest() {
   const [review, setReview] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState("current"); // "current" or "history"
+  const [history, setHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [hasMoreHistory, setHasMoreHistory] = useState(false);
 
   useEffect(() => {
     loadReview();
   }, [lang]);
+
+  useEffect(() => {
+    if (activeTab === "history" && history.length === 0) {
+      loadHistory();
+    }
+  }, [activeTab]);
 
   const loadReview = async (forceRefresh = false) => {
     if (forceRefresh) {
@@ -107,6 +117,24 @@ export default function Digest() {
     } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+  };
+
+  const loadHistory = async (loadMore = false) => {
+    setHistoryLoading(true);
+    try {
+      const skip = loadMore ? history.length : 0;
+      const res = await axios.get(`${API}/coach/digest/history?user_id=${USER_ID}&limit=10&skip=${skip}`);
+      if (loadMore) {
+        setHistory(prev => [...prev, ...res.data.digests]);
+      } else {
+        setHistory(res.data.digests);
+      }
+      setHasMoreHistory(res.data.has_more);
+    } catch (error) {
+      console.error("Failed to load history:", error);
+    } finally {
+      setHistoryLoading(false);
     }
   };
 
