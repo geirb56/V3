@@ -2761,23 +2761,23 @@ async def get_rag_weekly_review(user_id: str = "default"):
 @api_router.get("/rag/workout/{workout_id}")
 async def get_rag_workout_analysis(workout_id: str, user_id: str = "default"):
     """Get RAG-enriched workout analysis"""
-    # Fetch the workout
+    # Fetch the workout - no user_id filter to match main endpoint behavior
     workout = await db.workouts.find_one(
-        {"user_id": user_id, "id": workout_id},
+        {"id": workout_id},
         {"_id": 0}
     )
     
     if not workout:
         raise HTTPException(status_code=404, detail="Workout not found")
     
-    # Fetch all workouts for comparison
+    # Fetch all workouts for comparison - no user_id filter
     all_workouts = await db.workouts.find(
-        {"user_id": user_id},
+        {},
         {"_id": 0}
     ).sort("date", -1).limit(100).to_list(length=100)
     
     # Fetch user goal
-    user_goal = await db.user_goals.find_one({"user_id": user_id}, {"_id": 0})
+    user_goal = await db.user_goals.find_one({}, {"_id": 0})
     
     # Generate RAG-enriched analysis
     result = generate_workout_analysis_rag(workout, all_workouts, user_goal)
