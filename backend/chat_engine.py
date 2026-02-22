@@ -1254,134 +1254,106 @@ def get_relevant_knowledge(category: str, context: Dict) -> List[str]:
 # ============================================================
 
 # Réponses courtes qui indiquent une réponse à une question précédente
+# NOTE: Plus de "relance" - les suggestions intelligentes remplacent les relances
 SHORT_RESPONSES = {
     # SALUTATIONS
     "salut": {
-        "response": "Salut ! 👋 Content de te voir !",
-        "relance": "Comment je peux t'aider aujourd'hui ? Tu veux parler de ton entraînement, ta forme, ou un plan ?"
+        "response": "Salut ! 👋 Content de te voir ! Je suis là pour t'aider sur ton entraînement, ta récup, tes objectifs...",
     },
     "bonjour": {
-        "response": "Bonjour ! ☀️ Prêt à parler running ?",
-        "relance": "Qu'est-ce qui t'amène ? Plan d'entraînement, analyse de séance, conseils ?"
+        "response": "Bonjour ! ☀️ Prêt à parler running ? Je peux t'aider sur ton plan, ta récup, tes zones...",
     },
     "hello": {
-        "response": "Hello ! 👋",
-        "relance": "Comment je peux t'aider aujourd'hui ?"
+        "response": "Hello ! 👋 Je suis ton coach running. Dis-moi ce qui te préoccupe !",
     },
     "hey": {
-        "response": "Hey ! 🙌",
-        "relance": "Quoi de neuf côté running ?"
+        "response": "Hey ! 🙌 Quoi de neuf côté running ?",
     },
     "coucou": {
-        "response": "Coucou ! 😊",
-        "relance": "Comment ça va ? Tu veux qu'on parle de ton entraînement ?"
+        "response": "Coucou ! 😊 Comment ça va ? Je suis là pour t'aider sur ton entraînement.",
     },
     "bonsoir": {
-        "response": "Bonsoir ! 🌙 Sortie du soir prévue ?",
-        "relance": "Je peux t'aider sur quoi ce soir ?"
+        "response": "Bonsoir ! 🌙 Tu veux qu'on parle de ton entraînement ou de ta récup ?",
     },
     "hi": {
-        "response": "Hi ! 👋",
-        "relance": "What's up ? Comment je peux t'aider ?"
+        "response": "Hi ! 👋 Je suis ton coach. Parle-moi de ton entraînement !",
     },
     "yo": {
-        "response": "Yo ! 🤙",
-        "relance": "Qu'est-ce qui t'amène ?"
+        "response": "Yo ! 🤙 Prêt à bosser ?",
     },
     # Réponses temporelles (matin/soir)
     "matin": {
         "response": "Le matin, c'est top pour l'énergie et la fraîcheur ! 🌅 Tu peux prévoir ton fractionné le matin quand t'es bien réveillé. Pour les sorties longues, ça laisse le reste de la journée libre !",
-        "relance": "Tu veux que je t'organise un plan avec des séances matinales ?"
     },
     "soir": {
         "response": "Le soir, c'est parfait pour décompresser après la journée ! 🌆 Les muscles sont plus souples et la perf est souvent meilleure. Par contre, évite les séances trop intenses juste avant de dormir.",
-        "relance": "Tu veux qu'on cale tes séances en fin de journée ?"
     },
     "midi": {
         "response": "Le midi, c'est bien si t'as une pause assez longue ! ☀️ Avantage : ça coupe la journée et te donne de l'énergie pour l'après-midi. Juste, mange léger avant.",
-        "relance": "T'as combien de temps pour ta pause midi ?"
     },
     # Réponses oui/non (français ET anglais)
     "oui": {
-        "response": "Super, on est partis ! 💪",
-        "relance": "Dis-moi plus en détail ce que tu veux qu'on travaille."
+        "response": "Super, on est partis ! 💪 Je suis là pour t'aider.",
     },
     "yes": {
-        "response": "Super, on est partis ! 💪",
-        "relance": "Dis-moi plus en détail ce que tu veux qu'on travaille."
+        "response": "Super, on est partis ! 💪 Je suis là pour t'aider.",
     },
     "ouais": {
-        "response": "Parfait ! 👊",
-        "relance": "On continue sur quoi ?"
+        "response": "Parfait ! 👊 On continue.",
     },
     "yep": {
-        "response": "Top ! 👍",
-        "relance": "Qu'est-ce que tu veux qu'on voie ensemble ?"
+        "response": "Top ! 👍 Je t'écoute.",
     },
     "non": {
         "response": "Pas de souci, on adapte ! 👍",
-        "relance": "Qu'est-ce qui t'arrangerait mieux ?"
     },
     "no": {
         "response": "Pas de souci, on adapte ! 👍",
-        "relance": "Qu'est-ce qui t'arrangerait mieux ?"
     },
     "nope": {
         "response": "Ok, pas de problème !",
-        "relance": "Tu préfères quoi alors ?"
     },
     "ok": {
         "response": "Parfait ! ✅",
-        "relance": "T'as d'autres questions ?"
     },
     "okay": {
         "response": "Parfait ! ✅",
-        "relance": "T'as d'autres questions ?"
     },
     "d'accord": {
         "response": "Super ! 👌",
-        "relance": "On continue ?"
     },
     "merci": {
         "response": "De rien, c'est le job ! 😊 Content de pouvoir t'aider.",
-        "relance": "N'hésite pas si t'as d'autres questions !"
     },
     "thanks": {
         "response": "De rien ! 😊 Je suis là pour ça.",
-        "relance": "Autre chose que je peux faire pour toi ?"
     },
     "cool": {
         "response": "Content que ça te plaise ! 😎",
-        "relance": "On continue sur quoi maintenant ?"
     },
     "parfait": {
         "response": "Super ! On est sur la bonne voie. 🎯",
-        "relance": "Autre chose que je peux faire pour toi ?"
     },
     "perfect": {
         "response": "Super ! 🎯",
-        "relance": "Autre chose ?"
     },
     "génial": {
         "response": "Content que ça te convienne ! 🙌",
-        "relance": "Tu veux qu'on voie autre chose ?"
     },
     "top": {
         "response": "Au top ! 🔥",
-        "relance": "Quoi d'autre ?"
     },
     "nickel": {
         "response": "Nickel ! 👌",
-        "relance": "On continue ?"
     },
     # Jours de la semaine
-    "lundi": {"response": "Lundi, bonne idée pour bien démarrer la semaine ! 📅", "relance": "Tu veux quelle type de séance ce jour-là ?"},
-    "mardi": {"response": "Mardi, c'est souvent un bon jour pour du fractionné ! 💨", "relance": "On programme quoi ?"},
-    "mercredi": {"response": "Mercredi, milieu de semaine, parfait pour une séance qualité ! 🎯", "relance": "Tu veux quoi ce jour-là ?"},
-    "jeudi": {"response": "Jeudi, jour de récup ou petite sortie ? 🤔", "relance": "Comment tu te sens généralement en fin de semaine ?"},
-    "vendredi": {"response": "Vendredi, on prépare le week-end ! 🏃", "relance": "Tu cours le week-end aussi ?"},
-    "samedi": {"response": "Samedi, journée idéale pour la sortie longue ! ☀️", "relance": "Tu fais souvent ta longue le week-end ?"},
-    "dimanche": {"response": "Dimanche, jour classique pour la sortie longue ou repos ! 🌳", "relance": "Tu préfères courir ou récupérer ce jour-là ?"},
+    "lundi": {"response": "Lundi, bonne idée pour bien démarrer la semaine ! 📅 C'est souvent un bon jour pour une séance de reprise."},
+    "mardi": {"response": "Mardi, c'est souvent un bon jour pour du fractionné ! 💨 Les jambes sont bien récupérées du week-end."},
+    "mercredi": {"response": "Mercredi, milieu de semaine, parfait pour une séance qualité ! 🎯"},
+    "jeudi": {"response": "Jeudi, jour idéal pour une séance technique ou un footing récup. 🤔"},
+    "vendredi": {"response": "Vendredi, on prépare le week-end ! 🏃 Séance légère pour être frais."},
+    "samedi": {"response": "Samedi, journée idéale pour la sortie longue ! ☀️ Profite du temps libre."},
+    "dimanche": {"response": "Dimanche, jour classique pour la sortie longue ou repos ! 🌳"},
 }
 
 
