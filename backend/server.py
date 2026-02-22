@@ -3671,6 +3671,8 @@ class ChatResponse(BaseModel):
     messages_remaining: int
     messages_limit: int
     is_unlimited: bool = False
+    suggestions: List[str] = []  # Suggested follow-up questions
+    category: str = ""  # Detected intent category
 
 
 class ChatHistoryItem(BaseModel):
