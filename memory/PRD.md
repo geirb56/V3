@@ -622,9 +622,11 @@ User should always know: "Am I doing too much?", "Am I doing too little?", "What
 
 **New Features:**
 1. **SHORT_RESPONSES Dictionary** - Handles common short replies:
-   - Time-related: "matin", "soir" → contextual advice about morning/evening running
-   - Confirmations: "oui", "non", "ok", "merci", "cool", "parfait"
-   - Days of week: "lundi" through "dimanche" → scheduling suggestions
+   - Greetings: "salut", "bonjour", "hello", "hey", "coucou", "bonsoir", "hi", "yo"
+   - Time-related: "matin", "soir", "midi"
+   - Confirmations: "oui", "yes", "ouais", "yep", "non", "no", "nope", "ok", "okay", "d'accord"
+   - Appreciation: "merci", "thanks", "cool", "parfait", "perfect", "génial", "top", "nickel"
+   - Days of week: "lundi" through "dimanche"
 
 2. **Improved Template Variables** - Added missing context variables:
    - `zones_resume`, `zones_conseil`, `charge_recommandation`
@@ -635,6 +637,47 @@ User should always know: "Am I doing too much?", "Am I doing too little?", "What
 
 **Files Modified:**
 - `/app/backend/chat_engine.py` - Major improvements to response generation
+
+### Phase 22 - SMART SUGGESTIONS SYSTEM (Dec 2025) ✅
+**Système de suggestions intelligentes après chaque réponse**
+
+**Features:**
+1. **SUGGESTED_QUESTIONS Dictionary** - 8-12 questions par catégorie:
+   - `fatigue` - récup, sommeil, hydratation, signes surentraînement
+   - `allure_cadence` - drills, terrain, paces cibles, foulée
+   - `plan` - volume, objectifs, séances qualité
+   - `prepa_course` - stratégie, nutrition, checklist
+   - `recuperation` - mobilité, foam roller, bains froids
+   - `analyse_semaine` - bilan détaillé, progression
+   - `motivation` - défis fun, changement routine
+   - `blessures` - renfo, kiné, reprise
+   - `progression` - VMA, vitesse, variation
+   - `nutrition` - repas, hydratation, gels
+   - `equipement` - chaussures, montre, tenue
+   - `general` & `fallback` - questions génériques
+
+2. **Personalized Suggestions** - Basées sur le contexte:
+   - Course proche → "Tu veux un plan pour [nom] dans X jours ?"
+   - Cadence basse → "Tu veux des exercices pour améliorer ta cadence ?"
+   - Ratio élevé → "Tu veux qu'on allège le plan ?"
+   - Peu de séances → "Tu veux un plan adapté à ton emploi du temps ?"
+
+3. **API Response Updated:**
+   - `ChatResponse` inclut `suggestions: List[str]` et `category: str`
+   - Suggestions stockées avec les messages dans MongoDB
+
+4. **Frontend UI:**
+   - Suggestions affichées sous forme de boutons cliquables (pills)
+   - Section "💡 SUGGESTIONS" après chaque réponse assistant
+   - Click → remplit le champ input avec la suggestion
+   - Suggestions initiales si chat vide
+
+**Files Modified:**
+- `/app/backend/chat_engine.py` - SUGGESTED_QUESTIONS, get_personalized_suggestions(), generate_response_with_suggestions()
+- `/app/backend/server.py` - ChatResponse model, /api/chat/send endpoint
+- `/app/frontend/src/components/ChatCoach.jsx` - Suggestions buttons UI
+
+**Test Report:** Validated via curl and screenshots
 
 ### P1 - High Priority (Next)
 - Allow user to configure personal max HR in Settings
