@@ -92,14 +92,18 @@ const ChatCoach = ({ isOpen, onClose, userId = "default" }) => {
         use_local_llm: false
       });
 
-      // Add assistant response
+      // Add assistant response with suggestions
       const assistantMsg = {
         id: res.data.message_id,
         role: "assistant",
         content: res.data.response,
+        suggestions: res.data.suggestions || [],
         timestamp: new Date().toISOString()
       };
       setMessages(prev => [...prev, assistantMsg]);
+      
+      // Store current suggestions for display
+      setCurrentSuggestions(res.data.suggestions || []);
 
       // Update remaining messages
       setSubscriptionStatus(prev => ({
