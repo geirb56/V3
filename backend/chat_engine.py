@@ -1239,22 +1239,58 @@ SHORT_RESPONSES = {
         "response": "Le soir, c'est parfait pour décompresser après la journée ! 🌆 Les muscles sont plus souples et la perf est souvent meilleure. Par contre, évite les séances trop intenses juste avant de dormir.",
         "relance": "Tu veux qu'on cale tes séances en fin de journée ?"
     },
-    # Réponses oui/non
+    "midi": {
+        "response": "Le midi, c'est bien si t'as une pause assez longue ! ☀️ Avantage : ça coupe la journée et te donne de l'énergie pour l'après-midi. Juste, mange léger avant.",
+        "relance": "T'as combien de temps pour ta pause midi ?"
+    },
+    # Réponses oui/non (français ET anglais)
     "oui": {
         "response": "Super, on est partis ! 💪",
         "relance": "Dis-moi plus en détail ce que tu veux qu'on travaille."
+    },
+    "yes": {
+        "response": "Super, on est partis ! 💪",
+        "relance": "Dis-moi plus en détail ce que tu veux qu'on travaille."
+    },
+    "ouais": {
+        "response": "Parfait ! 👊",
+        "relance": "On continue sur quoi ?"
+    },
+    "yep": {
+        "response": "Top ! 👍",
+        "relance": "Qu'est-ce que tu veux qu'on voie ensemble ?"
     },
     "non": {
         "response": "Pas de souci, on adapte ! 👍",
         "relance": "Qu'est-ce qui t'arrangerait mieux ?"
     },
+    "no": {
+        "response": "Pas de souci, on adapte ! 👍",
+        "relance": "Qu'est-ce qui t'arrangerait mieux ?"
+    },
+    "nope": {
+        "response": "Ok, pas de problème !",
+        "relance": "Tu préfères quoi alors ?"
+    },
     "ok": {
         "response": "Parfait ! ✅",
         "relance": "T'as d'autres questions ?"
     },
+    "okay": {
+        "response": "Parfait ! ✅",
+        "relance": "T'as d'autres questions ?"
+    },
+    "d'accord": {
+        "response": "Super ! 👌",
+        "relance": "On continue ?"
+    },
     "merci": {
         "response": "De rien, c'est le job ! 😊 Content de pouvoir t'aider.",
         "relance": "N'hésite pas si t'as d'autres questions !"
+    },
+    "thanks": {
+        "response": "De rien ! 😊 Je suis là pour ça.",
+        "relance": "Autre chose que je peux faire pour toi ?"
     },
     "cool": {
         "response": "Content que ça te plaise ! 😎",
@@ -1263,6 +1299,22 @@ SHORT_RESPONSES = {
     "parfait": {
         "response": "Super ! On est sur la bonne voie. 🎯",
         "relance": "Autre chose que je peux faire pour toi ?"
+    },
+    "perfect": {
+        "response": "Super ! 🎯",
+        "relance": "Autre chose ?"
+    },
+    "génial": {
+        "response": "Content que ça te convienne ! 🙌",
+        "relance": "Tu veux qu'on voie autre chose ?"
+    },
+    "top": {
+        "response": "Au top ! 🔥",
+        "relance": "Quoi d'autre ?"
+    },
+    "nickel": {
+        "response": "Nickel ! 👌",
+        "relance": "On continue ?"
     },
     # Jours de la semaine
     "lundi": {"response": "Lundi, bonne idée pour bien démarrer la semaine ! 📅", "relance": "Tu veux quelle type de séance ce jour-là ?"},
