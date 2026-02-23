@@ -1411,6 +1411,76 @@ def _get_zones_verdict(zones: Dict) -> str:
         return "Continue à varier tes séances !"
 
 
+def _get_sensations(context: Dict) -> str:
+    """Génère une description des sensations basée sur le contexte"""
+    ratio = context.get("ratio", 1.0)
+    nb_seances = context.get("nb_seances", 0)
+    z4z5 = context.get("zones", {}).get("z4", 0) + context.get("zones", {}).get("z5", 0)
+    
+    if ratio > 1.5:
+        return "peut-être un peu lourdes avec cette charge élevée"
+    elif ratio > 1.2:
+        return "correctes mais surveillées vu la charge"
+    elif nb_seances >= 4:
+        return "bonnes grâce à ta régularité"
+    elif z4z5 > 25:
+        return "intenses avec ce travail de qualité"
+    else:
+        return "plutôt bonnes cette semaine"
+
+
+def _get_sensations_conseil(context: Dict) -> str:
+    """Génère un conseil basé sur les sensations estimées"""
+    ratio = context.get("ratio", 1.0)
+    z4z5 = context.get("zones", {}).get("z4", 0) + context.get("zones", {}).get("z5", 0)
+    
+    if ratio > 1.5:
+        return "Prends une semaine plus cool pour récupérer."
+    elif ratio > 1.2:
+        return "Écoute bien ton corps cette semaine."
+    elif z4z5 > 25:
+        return "Bien joué sur l'intensité, récupère bien entre les séances."
+    else:
+        return "Continue sur cette lancée !"
+
+
+def _get_point_fort(context: Dict) -> str:
+    """Identifie le point fort de la semaine"""
+    zones = context.get("zones", {})
+    z1z2 = zones.get("z1", 0) + zones.get("z2", 0)
+    nb_seances = context.get("nb_seances", 0)
+    cadence = context.get("cadence", 0)
+    
+    if nb_seances >= 4:
+        return "ta régularité"
+    elif z1z2 >= 50:
+        return "ton travail en endurance"
+    elif cadence >= 170:
+        return "ta cadence de course"
+    elif context.get("km_semaine", 0) >= 30:
+        return "ton volume d'entraînement"
+    else:
+        return "ta motivation à continuer"
+
+
+def _get_point_ameliorer(context: Dict) -> str:
+    """Identifie le point à améliorer"""
+    zones = context.get("zones", {})
+    z1z2 = zones.get("z1", 0) + zones.get("z2", 0)
+    z3 = zones.get("z3", 0)
+    cadence = context.get("cadence", 0)
+    nb_seances = context.get("nb_seances", 0)
+    
+    if z1z2 < 30 and z3 > 50:
+        return "ajouter plus d'endurance fondamentale"
+    elif 0 < cadence < 165:
+        return "travailler ta cadence"
+    elif nb_seances < 3:
+        return "augmenter la fréquence des séances"
+    else:
+        return "varier les types de séances"
+
+
 def fill_template(template: str, context: Dict) -> str:
     """Remplit un template avec les données du contexte"""
     # Créer un dictionnaire de remplacement avec des valeurs par défaut
