@@ -884,38 +884,17 @@ def enrich_workout_with_detailed_data(workout: dict, streams_data: dict, laps_da
         return workout
     
     distance_km = workout.get("distance_km", 0)
+    expected_km_count = int(distance_km) + (1 if distance_km % 1 > 0.3 else 0)  # Ex: 6.7km = 7 splits
     
-    # Process laps (official Strava splits)
-    if laps_data:
-        splits = process_strava_laps(laps_data)
-        workout["splits"] = splits
-        
-        # Analyze splits for RAG
-        if splits:
-            paces = [s["pace_min_km"] for s in splits if s.get("pace_min_km")]
-            if paces:
-                fastest_split = min(paces)
-                slowest_split = max(paces)
-                avg_split_pace = sum(paces) / len(paces)
-                
-                # Find fastest and slowest km
-                fastest_km = next((s["lap_num"] for s in splits if s.get("pace_min_km") == fastest_split), None)
-                slowest_km = next((s["lap_num"] for s in splits if s.get("pace_min_km") == slowest_split), None)
-                
-                workout["split_analysis"] = {
-                    "fastest_split_pace": round(fastest_split, 2),
-                    "slowest_split_pace": round(slowest_split, 2),
-                    "fastest_km": fastest_km,
-                    "slowest_km": slowest_km,
-                    "pace_drop": round(slowest_split - fastest_split, 2),
-                    "consistency_score": round(100 - (slowest_split - fastest_split) * 10, 1),  # 100 = parfait
-                    "negative_split": paces[-1] < paces[0] if len(paces) >= 2 else False,
-                    "total_splits": len(splits)
-                }
-    
-    # Process streams for detailed data
+    # Process streams FIRST to get accurate km_splits
+    km_splits = []
     if streams_data:
         detailed = process_strava_streams(streams_data, distance_km)
+        
+        # Store km splits from streams (accurate per-km data)
+        if detailed.get("km_splits"):
+            km_splits = detailed["km_splits"]
+            workout["km_splits"] = km_splits
         
         # Store sampled data for RAG retrieval
         if detailed.get("hr_data"):
@@ -950,10 +929,71 @@ def enrich_workout_with_detailed_data(workout: dict, streams_data: dict, laps_da
                     "total_climb": round(sum(max(0, alt_data[i] - alt_data[i-1]) for i in range(1, len(alt_data)))),
                     "total_descent": round(sum(max(0, alt_data[i-1] - alt_data[i]) for i in range(1, len(alt_data)))),
                 }
+    
+    # Use km_splits for split analysis (accurate per-km) OR fall back to laps if close to expected
+    use_km_splits = len(km_splits) > 0 and abs(len(km_splits) - expected_km_count) <= 2
+    
+    if use_km_splits:
+        # Use km_splits from streams (more accurate)
+        splits = []
+        for i, ks in enumerate(km_splits):
+            splits.append({
+                "lap_num": i + 1,
+                "pace_min_km": ks.get("pace_min", 0),
+                "pace_str": ks.get("pace_str", "N/A"),
+                "avg_hr": ks.get("avg_hr"),
+                "avg_cadence": ks.get("avg_cadence"),
+            })
+        workout["splits"] = splits
         
-        # Store km splits from streams
-        if detailed.get("km_splits"):
-            workout["km_splits"] = detailed["km_splits"]
+        # Analyze km splits
+        paces = [s["pace_min_km"] for s in splits if s.get("pace_min_km") and s["pace_min_km"] > 0]
+        if paces:
+            fastest_split = min(paces)
+            slowest_split = max(paces)
+            
+            # Find fastest and slowest km
+            fastest_km = next((s["lap_num"] for s in splits if s.get("pace_min_km") == fastest_split), None)
+            slowest_km = next((s["lap_num"] for s in splits if s.get("pace_min_km") == slowest_split), None)
+            
+            workout["split_analysis"] = {
+                "fastest_split_pace": round(fastest_split, 2),
+                "slowest_split_pace": round(slowest_split, 2),
+                "fastest_km": fastest_km,
+                "slowest_km": slowest_km,
+                "pace_drop": round(slowest_split - fastest_split, 2),
+                "consistency_score": round(max(0, 100 - (slowest_split - fastest_split) * 10), 1),
+                "negative_split": paces[-1] < paces[0] if len(paces) >= 2 else False,
+                "total_splits": len(splits)
+            }
+    elif laps_data and abs(len(laps_data) - expected_km_count) <= 2:
+        # Fall back to laps ONLY if they match expected km count (likely auto-lap per km)
+        splits = process_strava_laps(laps_data)
+        workout["splits"] = splits
+        
+        if splits:
+            paces = [s["pace_min_km"] for s in splits if s.get("pace_min_km")]
+            if paces:
+                fastest_split = min(paces)
+                slowest_split = max(paces)
+                
+                fastest_km = next((s["lap_num"] for s in splits if s.get("pace_min_km") == fastest_split), None)
+                slowest_km = next((s["lap_num"] for s in splits if s.get("pace_min_km") == slowest_split), None)
+                
+                workout["split_analysis"] = {
+                    "fastest_split_pace": round(fastest_split, 2),
+                    "slowest_split_pace": round(slowest_split, 2),
+                    "fastest_km": fastest_km,
+                    "slowest_km": slowest_km,
+                    "pace_drop": round(slowest_split - fastest_split, 2),
+                    "consistency_score": round(max(0, 100 - (slowest_split - fastest_split) * 10), 1),
+                    "negative_split": paces[-1] < paces[0] if len(paces) >= 2 else False,
+                    "total_splits": len(splits)
+                }
+    else:
+        # No valid splits data - clear any invalid analysis
+        workout["splits"] = []
+        workout["split_analysis"] = {}
     
     return workout
 
