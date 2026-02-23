@@ -1844,6 +1844,58 @@ def _get_analyse_progression(context: Dict) -> str:
         return "tu démarres bien, la priorité c'est la régularité"
 
 
+def _get_temps_estime(context: Dict) -> str:
+    """Estime un temps de course basé sur l'allure actuelle"""
+    allure = context.get("allure", "N/A")
+    if allure == "N/A":
+        return "à déterminer"
+    
+    try:
+        parts = allure.split(":")
+        pace_min = float(parts[0]) + float(parts[1]) / 60
+        
+        # Estimation 10km (allure + 5% de marge)
+        time_10k = pace_min * 10 * 1.05
+        hours = int(time_10k // 60)
+        minutes = int(time_10k % 60)
+        
+        if hours > 0:
+            return f"{hours}h{minutes:02d}"
+        else:
+            return f"{minutes} min"
+    except:
+        return "à calculer"
+
+
+def _get_charge_comment(context: Dict) -> str:
+    """Génère un commentaire sur la charge d'entraînement"""
+    km_semaine = context.get("km_semaine", 0)
+    
+    if km_semaine >= 50:
+        return "solide, attention à ne pas trop charger avant la course"
+    elif km_semaine >= 35:
+        return "bonne pour une prépa sérieuse"
+    elif km_semaine >= 25:
+        return "correcte, tu peux encore augmenter si tu te sens bien"
+    elif km_semaine >= 15:
+        return "un bon début, continue de construire ta base"
+    else:
+        return "légère, augmente progressivement"
+
+
+def _get_duree_totale(context: Dict) -> str:
+    """Calcule la durée totale de course de la semaine"""
+    workouts = context.get("recent_workouts", [])
+    total_min = sum(w.get("duration_min", 0) for w in workouts)
+    
+    if total_min >= 60:
+        hours = total_min // 60
+        mins = total_min % 60
+        return f"{hours}h{mins:02d}"
+    else:
+        return f"{total_min} min"
+
+
 def fill_template(template: str, context: Dict) -> str:
     """Remplit un template avec les données du contexte"""
     # Créer un dictionnaire de remplacement avec des valeurs par défaut
