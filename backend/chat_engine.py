@@ -2079,9 +2079,14 @@ async def generate_chat_response(
     """
     Fonction principale pour générer une réponse de chat avec suggestions.
     100% Python, pas de LLM, rapide (<1s)
-    Retourne un dict avec 'response', 'suggestions', 'category'
+    Retourne un dict avec 'response', 'suggestions', 'category', 'rag_chunks'
+    
+    RAG Sources:
+    1. User workouts (get_user_training_context)
+    2. Knowledge base tips (get_relevant_knowledge)
+    3. Similar workouts comparison (context)
     """
-    # Extraire le contexte d'entraînement
+    # RAG Source 1: Extraire le contexte d'entraînement (runs récents/historiques)
     context = get_user_training_context(workouts or [], user_goal)
     
     # Ajouter le nom de l'objectif au contexte si disponible
@@ -2091,11 +2096,25 @@ async def generate_chat_response(
     # Détecter l'intention
     category, confidence = detect_intent(message)
     
-    # Récupérer les connaissances pertinentes
-    knowledge = get_relevant_knowledge(category, context)
+    # RAG Source 2: Récupérer les connaissances pertinentes de la base statique
+    knowledge_tips = get_relevant_knowledge(category, context)
     
-    # Générer la réponse avec suggestions
+    # Ajouter les tips au contexte pour les templates
+    context["rag_tips"] = knowledge_tips
+    context["rag_tip_1"] = knowledge_tips[0] if len(knowledge_tips) > 0 else ""
+    context["rag_tip_2"] = knowledge_tips[1] if len(knowledge_tips) > 1 else ""
+    context["rag_tip_3"] = knowledge_tips[2] if len(knowledge_tips) > 2 else ""
+    
+    # Générer la réponse avec suggestions (intègre les tips RAG)
     result = generate_response_with_suggestions(message, context, category)
+    
+    # Ajouter les chunks RAG utilisés pour traçabilité
+    result["rag_chunks"] = knowledge_tips
+    result["rag_sources"] = {
+        "workouts_count": len(workouts or []),
+        "knowledge_tips": len(knowledge_tips),
+        "context_keys": list(context.keys())
+    }
     
     return result
 
