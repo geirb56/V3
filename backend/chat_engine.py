@@ -1050,6 +1050,87 @@ TEMPLATES = {
         ]
     },
     
+    # ==================== CATÉGORIE 19: AMÉLIORER L'ALLURE ====================
+    # Spécifique aux questions "Comment améliorer mon allure / pace"
+    "ameliorer_allure": {
+        "keywords": [],  # Catégorie activée par detect_intent combiné
+        "intros": [
+            "Améliorer ton allure, c'est un objectif top ! 🎯",
+            "Progresser sur le pace, c'est faisable avec la bonne méthode !",
+            "Bonne question ! Y'a plusieurs leviers pour aller plus vite.",
+            "Améliorer l'allure, c'est THE objectif de beaucoup de coureurs !",
+            "Ok, on va bosser ta vitesse ! 💪",
+            "Pour progresser en allure, il faut être malin dans l'entraînement.",
+            "Le pace, ça se travaille ! Voici comment.",
+            "Progresser sur l'allure, c'est possible à tout niveau !",
+        ],
+        "analyses": [
+            "Ton allure actuelle de {allure}/km est {allure_comment}. Pour progresser, il faut combiner endurance de base (80% du volume) et travail spécifique (20%).",
+            "Pour passer de {allure} à une allure plus rapide, le secret c'est la régularité + la patience. Compte 2-3 mois pour voir des résultats concrets.",
+            "L'amélioration de l'allure vient de : 1) Plus de volume en endurance facile, 2) Séances de seuil, 3) Fractionné court.",
+            "Ta cadence de {cadence} spm joue aussi un rôle. Une foulée plus rapide (170-180 spm) = moins d'effort à même allure.",
+            "Pour gagner 30 sec/km, il faut environ 3-4 mois de travail structuré. C'est pas instantané mais c'est durable !",
+            "Ton volume actuel ({km_semaine} km/sem) est {volume_comment}. Plus de volume facile = meilleure économie de course = allure plus rapide.",
+        ],
+        "conseils": [
+            "Plan concret pour améliorer ton allure :\n• 1 séance de seuil/sem (ex: 3x10min à allure semi)\n• 1 séance de fractionné court (ex: 8x400m)\n• Le reste en endurance facile (Z2)",
+            "Commence par ajouter du volume en endurance fondamentale. Paradoxalement, courir plus lentement sur les sorties faciles te rendra plus rapide sur les courses !",
+            "Le travail de seuil est LA clé pour l'allure. Fais 2x15min ou 3x10min à ton allure semi-marathon, 1x par semaine.",
+            "Pour {allure}/km → {allure_cible}/km : vise 10-12 semaines de travail avec 1 séance qualité + 2-3 sorties faciles par semaine.",
+            "Travaille ta VMA avec du fractionné court (200-400m). Ça améliore ton plafond de vitesse et donc toutes tes allures.",
+            "Les côtes sont géniales pour l'allure : 6-8 x 30sec en côte, récup descente. Ça booste la puissance sans traumatiser les jambes.",
+        ],
+        "relances": []  # Pas de relances, on utilise les suggestions
+    },
+    
+    # ==================== CATÉGORIE 19b: AMÉLIORER L'ENDURANCE ====================
+    "ameliorer_endurance": {
+        "keywords": [],
+        "intros": [
+            "Améliorer ton endurance, excellent objectif ! 🏃",
+            "L'endurance, c'est la base de tout en course à pied !",
+            "Pour plus d'endurance, faut être patient mais ça paie !",
+            "Progresser en endurance, c'est le meilleur investissement !",
+        ],
+        "analyses": [
+            "L'endurance se construit avec du volume. Ton volume actuel ({km_semaine} km/sem) est {volume_comment}. Augmente progressivement (+10% max par semaine).",
+            "Pour plus d'endurance, la clé c'est de courir LENTEMENT la plupart du temps. 80% de tes km doivent être en Z2 (conversation possible).",
+            "Ta base d'endurance se développe sur des semaines et des mois. Pas de raccourci, mais les gains sont durables !",
+            "Les sorties longues hebdomadaires (1h30-2h+) sont essentielles pour l'endurance. Tu en fais actuellement {nb_sorties_longues} par semaine.",
+        ],
+        "conseils": [
+            "Plan pour améliorer l'endurance :\n• Augmente ton volume de 10% par semaine\n• Ajoute une sortie longue le weekend (1h30 min)\n• Reste en Z2 sur 80% des km",
+            "La sortie longue est TA séance clé pour l'endurance. Commence à 1h15, monte progressivement jusqu'à 2h sur 8-10 semaines.",
+            "Cours plus lentement ! Si tu peux pas tenir une conversation, c'est trop rapide pour l'endurance de base.",
+            "Ajoute 1 sortie par semaine (même 30-40min facile). Le volume total compte plus que l'intensité pour l'endurance.",
+        ],
+        "relances": []
+    },
+    
+    # ==================== CATÉGORIE 19c: AMÉLIORER GÉNÉRAL ====================
+    "ameliorer_general": {
+        "keywords": [],
+        "intros": [
+            "Tu veux progresser, c'est super ! 💪",
+            "Améliorer tes performances, on va voir ça ensemble !",
+            "La progression, c'est mon domaine ! Voyons ça.",
+            "Ok, on va t'aider à progresser ! 🎯",
+        ],
+        "analyses": [
+            "Pour progresser en course, il faut du volume (endurance), de la qualité (fractionné/seuil) et de la récup (repos, sommeil).",
+            "Avec tes {nb_seances} séances et {km_semaine} km cette semaine, {analyse_progression}.",
+            "La progression vient de la régularité avant tout. Mieux vaut 3 séances/sem pendant 6 mois que 5 séances/sem pendant 1 mois.",
+            "Ton corps s'adapte à ce que tu lui demandes. Pour progresser, il faut varier les stimuli : endurance, tempo, VMA, côtes...",
+        ],
+        "conseils": [
+            "Les 3 piliers de la progression :\n• Volume : plus de km (progressivement)\n• Qualité : 1-2 séances spécifiques/sem\n• Récup : repos, sommeil, nutrition",
+            "Pour progresser, sois régulier ! 3 séances/sem pendant 3 mois battent 5 séances/sem pendant 1 mois.",
+            "Ajoute de la variété : si tu fais toujours les mêmes séances, ton corps s'adapte et stagne.",
+            "La patience est clé. Les vrais progrès prennent 3-6 mois de travail constant.",
+        ],
+        "relances": []
+    },
+    
     # ==================== CATÉGORIE 20: FALLBACK ====================
     "fallback": {
         "keywords": [],  # Pas de keywords, c'est le fallback
