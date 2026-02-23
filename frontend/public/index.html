@@ -1,27 +1,40 @@
 <!doctype html>
-<html lang="en">
+<html lang="fr">
     <head>
         <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta name="theme-color" content="#000000" />
-        <meta name="description" content="A product of emergent.sh" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+        
+        <!-- PWA Meta Tags - Prompt natif du navigateur seulement, pas d'UI custom -->
+        <meta name="theme-color" content="#3B82F6" />
+        <meta name="description" content="CardioCoach - Coach running personnel avec synchronisation Strava, analyses RAG et suivi de progression" />
+        <meta name="application-name" content="CardioCoach" />
+        
+        <!-- Apple/iOS PWA Meta Tags -->
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="CardioCoach" />
+        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+        <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152x152.png" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-192x192.png" />
+        <link rel="apple-touch-icon" sizes="167x167" href="/icons/icon-192x192.png" />
+        
+        <!-- PWA Manifest -->
+        <link rel="manifest" href="/manifest.json" />
+        
+        <!-- Favicon -->
+        <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-96x96.png" />
+        <link rel="icon" type="image/png" sizes="16x16" href="/icons/icon-72x72.png" />
+        
+        <!-- Mobile optimization -->
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="format-detection" content="telephone=no" />
+        
+        <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@600&display=swap" rel="stylesheet" />
-        <!--
-        manifest.json provides metadata used when your web app is installed on a
-        user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
-        -->
-        <!--
-        Notice the use of %PUBLIC_URL% in the tags above.
-        It will be replaced with the URL of the `public` folder during the build.
-        Only files inside the `public` folder can be referenced from the HTML.
-
-        Unlike "/favicon.ico" or "favicon.ico", "%PUBLIC_URL%/favicon.ico" will
-        work correctly both with client-side routing and a non-root public URL.
-        Learn how to configure a non-root public URL by running `npm run build`.
-        -->
-        <title>Emergent | Fullstack App</title>
+        
+        <title>CardioCoach - Coach Running Personnel</title>
         <script src="https://assets.emergent.sh/scripts/emergent-main.js"></script>
         <!--
         These two scripts have been added for the Visual Edits, please do not edit or remove them
@@ -44,6 +57,23 @@
                 var tailwindScript = document.createElement('script');
                 tailwindScript.src = 'https://cdn.tailwindcss.com';
                 document.head.appendChild(tailwindScript);
+            }
+        </script>
+        
+        <!-- Service Worker Registration - Passive PWA installability -->
+        <script>
+            // Enregistrement passif du Service Worker pour PWA installability
+            // Prompt natif du navigateur seulement – pas d'UI custom
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function() {
+                    navigator.serviceWorker.register('/sw.js')
+                        .then(function(registration) {
+                            console.log('[PWA] Service Worker registered successfully:', registration.scope);
+                        })
+                        .catch(function(error) {
+                            console.log('[PWA] Service Worker registration failed:', error);
+                        });
+                });
             }
         </script>
     </head>
