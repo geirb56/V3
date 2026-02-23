@@ -1434,6 +1434,29 @@ def fill_template(template: str, context: Dict) -> str:
         "allure_comment": "solide" if context.get("allure", "N/A") != "N/A" else "N/A",
         "appreciation": "Belle semaine !" if context.get("nb_seances", 0) >= 3 else "C'est un bon début !",
         
+        # Sensations (basées sur le ratio et le volume)
+        "sensations": _get_sensations(context),
+        "sensations_conseil": _get_sensations_conseil(context),
+        
+        # Comparaison semaine
+        "comparaison_km": "stable" if context.get("ratio", 1.0) <= 1.1 else ("en hausse" if context.get("ratio", 1.0) > 1.1 else "en baisse"),
+        "comparaison_intensite": "similaire" if context.get("zones", {}).get("z4", 0) + context.get("zones", {}).get("z5", 0) < 20 else "plus intense",
+        
+        # Charge et évolution
+        "charge_niveau": "modérée" if context.get("ratio", 1.0) <= 1.2 else "élevée",
+        "charge_interpretation": "tu peux continuer comme ça" if context.get("ratio", 1.0) <= 1.2 else "attention à bien récupérer",
+        "allure_evolution": "stable" if context.get("ratio", 1.0) <= 1.1 else "en progression",
+        
+        # Régularité et répartition
+        "nb_jours": str(context.get("nb_seances", 0)),
+        "regularite_comment": "Bonne régularité !" if context.get("nb_seances", 0) >= 3 else "Tu peux ajouter une séance si tu te sens bien.",
+        "repartition_types": "équilibrée" if context.get("zones", {}).get("z2", 0) > 30 else "orientée intensité",
+        "repartition_verdict": "Continue comme ça !" if context.get("zones", {}).get("z2", 0) > 30 else "Ajoute plus d'endurance fondamentale.",
+        
+        # Points forts/faibles
+        "point_fort": _get_point_fort(context),
+        "point_ameliorer": _get_point_ameliorer(context),
+        
         # Commentaires contextuels supplémentaires
         "zones_resume": f"Z1-Z2: {context.get('zones', {}).get('z1', 0) + context.get('zones', {}).get('z2', 0)}%, Z3: {context.get('zones', {}).get('z3', 0)}%, Z4-Z5: {context.get('zones', {}).get('z4', 0) + context.get('zones', {}).get('z5', 0)}%" if context.get("zones") else "pas de données de zones",
         "zones_conseil": "bon équilibre !" if context.get("zones", {}).get("z2", 0) > 40 else "pense à faire plus d'endurance fondamentale.",
