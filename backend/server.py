@@ -33,6 +33,15 @@ from chat_engine import (
     get_remaining_messages
 )
 
+# Import LLM coach module (serveur uniquement)
+# LLM serveur uniquement – pas d'exécution client-side
+from llm_coach import (
+    generate_llm_response,
+    check_ollama_available,
+    OLLAMA_MODEL,
+    OLLAMA_HOST
+)
+
 # Import RAG engine for enriched analyses
 from rag_engine import (
     generate_dashboard_rag,
