@@ -33,13 +33,14 @@ from chat_engine import (
     get_remaining_messages
 )
 
-# Import LLM coach module (serveur uniquement)
+# Import LLM coach module (serveur uniquement - Emergent GPT-4o-mini)
 # LLM serveur uniquement – pas d'exécution client-side
 from llm_coach import (
     generate_llm_response,
-    check_ollama_available,
-    OLLAMA_MODEL,
-    OLLAMA_HOST
+    check_llm_available,
+    get_llm_info,
+    LLM_MODEL,
+    LLM_PROVIDER
 )
 
 # Import RAG engine for enriched analyses
