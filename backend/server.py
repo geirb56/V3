@@ -462,7 +462,7 @@ async def fetch_strava_activity_streams(access_token: str, activity_id: str) -> 
                 f"https://www.strava.com/api/v3/activities/{activity_id}/streams",
                 headers={"Authorization": f"Bearer {access_token}"},
                 params={
-                    "keys": "heartrate,velocity_smooth,cadence,altitude,time",
+                    "keys": "heartrate,velocity_smooth,cadence,altitude,time,distance,grade_smooth",
                     "key_by_type": "true"
                 }
             )
@@ -476,6 +476,145 @@ async def fetch_strava_activity_streams(access_token: str, activity_id: str) -> 
         logger.warning(f"Error fetching streams for activity {activity_id}: {e}")
     
     return streams_data
+
+
+async def fetch_strava_activity_laps(access_token: str, activity_id: str) -> list:
+    """Fetch lap data for a specific activity (splits per km)"""
+    laps_data = []
+    
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.get(
+                f"https://www.strava.com/api/v3/activities/{activity_id}/laps",
+                headers={"Authorization": f"Bearer {access_token}"}
+            )
+            
+            if response.status_code == 200:
+                laps_data = response.json()
+            else:
+                logger.warning(f"Failed to fetch laps for activity {activity_id}: {response.status_code}")
+    except Exception as e:
+        logger.warning(f"Error fetching laps for activity {activity_id}: {e}")
+    
+    return laps_data
+
+
+def process_strava_laps(laps: list) -> list:
+    """Convert Strava laps to anonymized split data"""
+    splits = []
+    for i, lap in enumerate(laps, 1):
+        distance_km = lap.get("distance", 0) / 1000
+        elapsed_time = lap.get("elapsed_time", 0)  # seconds
+        moving_time = lap.get("moving_time", elapsed_time)
+        avg_speed = lap.get("average_speed", 0)  # m/s
+        avg_hr = lap.get("average_heartrate")
+        max_hr = lap.get("max_heartrate")
+        avg_cadence = lap.get("average_cadence")
+        elevation_gain = lap.get("total_elevation_gain", 0)
+        
+        # Calculate pace min/km
+        if avg_speed > 0:
+            pace_min_km = (1000 / avg_speed) / 60
+            pace_str = f"{int(pace_min_km)}:{int((pace_min_km % 1) * 60):02d}"
+        else:
+            pace_min_km = None
+            pace_str = "N/A"
+        
+        splits.append({
+            "lap_num": i,
+            "distance_km": round(distance_km, 2),
+            "elapsed_time_sec": elapsed_time,
+            "moving_time_sec": moving_time,
+            "pace_min_km": round(pace_min_km, 2) if pace_min_km else None,
+            "pace_str": pace_str,
+            "avg_hr": avg_hr,
+            "max_hr": max_hr,
+            "avg_cadence": int(avg_cadence * 2) if avg_cadence else None,  # Strava returns half cadence
+            "elevation_gain": elevation_gain
+        })
+    
+    return splits
+
+
+def process_strava_streams(streams_data: dict, distance_km: float) -> dict:
+    """Process streams into per-km detailed data"""
+    detailed_data = {
+        "hr_data": [],
+        "cadence_data": [],
+        "pace_data": [],
+        "altitude_data": [],
+        "km_splits": []
+    }
+    
+    if not streams_data:
+        return detailed_data
+    
+    # Extract raw streams
+    hr_stream = streams_data.get("heartrate", {}).get("data", [])
+    cadence_stream = streams_data.get("cadence", {}).get("data", [])
+    velocity_stream = streams_data.get("velocity_smooth", {}).get("data", [])
+    altitude_stream = streams_data.get("altitude", {}).get("data", [])
+    distance_stream = streams_data.get("distance", {}).get("data", [])
+    time_stream = streams_data.get("time", {}).get("data", [])
+    
+    # Store raw data (sampled for storage efficiency)
+    sample_rate = max(1, len(hr_stream) // 200)  # Max 200 points
+    detailed_data["hr_data"] = hr_stream[::sample_rate] if hr_stream else []
+    detailed_data["cadence_data"] = [c * 2 if c else None for c in cadence_stream[::sample_rate]] if cadence_stream else []
+    detailed_data["altitude_data"] = altitude_stream[::sample_rate] if altitude_stream else []
+    
+    # Convert velocity to pace (min/km)
+    if velocity_stream:
+        pace_data = []
+        for v in velocity_stream[::sample_rate]:
+            if v and v > 0:
+                pace_min_km = (1000 / v) / 60
+                pace_data.append(round(pace_min_km, 2))
+            else:
+                pace_data.append(None)
+        detailed_data["pace_data"] = pace_data
+    
+    # Calculate per-km splits from streams
+    if distance_stream and time_stream and velocity_stream:
+        km_splits = []
+        current_km = 1
+        km_start_idx = 0
+        
+        for i, dist in enumerate(distance_stream):
+            dist_km = dist / 1000
+            if dist_km >= current_km:
+                # Calculate stats for this km
+                km_hr = hr_stream[km_start_idx:i] if hr_stream else []
+                km_cadence = cadence_stream[km_start_idx:i] if cadence_stream else []
+                km_velocity = velocity_stream[km_start_idx:i] if velocity_stream else []
+                km_time = time_stream[i] - time_stream[km_start_idx] if time_stream else 0
+                
+                avg_hr = sum([h for h in km_hr if h]) / len([h for h in km_hr if h]) if km_hr else None
+                avg_cadence = sum([c for c in km_cadence if c]) / len([c for c in km_cadence if c]) if km_cadence else None
+                avg_velocity = sum([v for v in km_velocity if v]) / len([v for v in km_velocity if v]) if km_velocity else None
+                
+                if avg_velocity and avg_velocity > 0:
+                    pace_min_km = (1000 / avg_velocity) / 60
+                    pace_str = f"{int(pace_min_km)}:{int((pace_min_km % 1) * 60):02d}"
+                else:
+                    pace_min_km = None
+                    pace_str = "N/A"
+                
+                km_splits.append({
+                    "km": current_km,
+                    "time_sec": km_time,
+                    "pace_min_km": round(pace_min_km, 2) if pace_min_km else None,
+                    "pace_str": pace_str,
+                    "avg_hr": round(avg_hr) if avg_hr else None,
+                    "avg_cadence": round(avg_cadence * 2) if avg_cadence else None,
+                })
+                
+                current_km += 1
+                km_start_idx = i
+        
+        detailed_data["km_splits"] = km_splits
+    
+    return detailed_data
 
 
 async def fetch_strava_activity_zones(access_token: str, activity_id: str) -> dict:
