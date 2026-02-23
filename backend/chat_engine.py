@@ -1971,8 +1971,8 @@ def fill_template(template: str, context: Dict) -> str:
         
         # Variables pour prépa course (fallback values)
         "distance": context.get("goal_distance", "ta course"),
-        "phase_prepa": "d'entraînement" if context.get("jours_course", 30) > 14 else "d'affûtage",
-        "phase_conseil": "Continue le travail spécifique." if context.get("jours_course", 30) > 14 else "Réduis le volume, maintiens l'intensité.",
+        "phase_prepa": "d'entraînement" if (context.get("jours_course") or 30) > 14 else "d'affûtage",
+        "phase_conseil": "Continue le travail spécifique." if (context.get("jours_course") or 30) > 14 else "Réduis le volume, maintiens l'intensité.",
         "temps_estime": _get_temps_estime(context),
         "charge_comment": _get_charge_comment(context),
         "zones_analyse": "une bonne base d'endurance" if context.get("zones", {}).get("z2", 0) > 40 else "beaucoup de tempo",
