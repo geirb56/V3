@@ -1474,12 +1474,26 @@ def detect_intent(message: str) -> Tuple[str, float]:
     message_lower = message.lower()
     
     # ============================================================
+    # ÉTAPE 0: Détections prioritaires AVANT tout
+    # ============================================================
+    
+    # Points forts / Points faibles - questions d'analyse personnelle
+    if "point fort" in message_lower or "points forts" in message_lower:
+        return "points_forts", 0.95
+    if "point faible" in message_lower or "points faibles" in message_lower or "point à améliorer" in message_lower:
+        return "points_faibles", 0.95
+    
+    # Endurance fondamentale / Zone 2 - question spécifique
+    if "endurance fondamentale" in message_lower or "zone 2" in message_lower or "z2" in message_lower or "fond " in message_lower:
+        return "endurance_fondamentale", 0.95
+    
+    # ============================================================
     # ÉTAPE 1: Détecter le TYPE de question (améliorer, analyser, etc.)
     # ============================================================
     question_type = "general"
     
-    # Détection des questions "comment améliorer / progresser"
-    ameliorer_keywords = ["améliorer", "ameliorer", "progresser", "augmenter", "booster", "optimiser", "gagner", "passer de", "passer à", "descendre sous", "baisser mon", "comment aller plus", "courir plus vite", "être plus rapide"]
+    # Détection des questions "comment améliorer / progresser / travailler"
+    ameliorer_keywords = ["améliorer", "ameliorer", "progresser", "augmenter", "booster", "optimiser", "gagner", "passer de", "passer à", "descendre sous", "baisser mon", "comment aller plus", "courir plus vite", "être plus rapide", "travailler", "développer", "renforcer mon", "augmenter mon"]
     if any(kw in message_lower for kw in ameliorer_keywords):
         question_type = "ameliorer"
     
