@@ -679,6 +679,66 @@ User should always know: "Am I doing too much?", "Am I doing too little?", "What
 
 **Test Report:** Validated via curl and screenshots
 
+### Phase 23 - RAG DETAILED STRAVA DATA (Feb 2026) ✅
+**Enrichissement RAG avec données Strava détaillées (splits, laps, HR streams)**
+
+**Objective:** Utiliser les données détaillées de Strava (splits par km, flux HR, cadence) dans le moteur RAG pour des analyses plus profondes et personnalisées.
+
+**What Changed:**
+
+1. **Backend - Strava Sync Enrichment** (`/app/backend/server.py`)
+   - `fetch_strava_activity_laps()` - Fetch lap data (splits per km)
+   - `fetch_strava_activity_streams()` - Fetch HR, cadence, pace streams
+   - `process_strava_laps()` - Convert laps to splits array
+   - `process_strava_streams()` - Extract per-km detailed data
+   - `enrich_workout_with_detailed_data()` - Add split_analysis, hr_analysis, cadence_analysis to workouts
+   - Updates existing workouts during sync (not just insert new ones)
+
+2. **Data Fields Added to Workouts:**
+   - `splits[]` - Per-km splits with pace_str, avg_hr, avg_cadence, elevation_gain
+   - `split_analysis{}` - fastest_km, slowest_km, pace_drop, consistency_score, negative_split
+   - `hr_analysis{}` - min_hr, avg_hr, max_hr, hr_drift
+   - `cadence_analysis{}` - min_cadence, max_cadence, avg_cadence, cadence_stability
+   - `km_splits[]` - Detailed per-km data from streams
+   - `hr_stream_sample[]`, `cadence_stream_sample[]` - Sampled stream data for RAG
+
+3. **RAG Engine Updates** (`/app/backend/rag_engine.py`)
+   - `generate_workout_analysis_rag()` now uses split_analysis for pacing feedback
+   - Generates splits_text with first/last km comparison
+   - Generates hr_drift_text with hydration recommendations
+   - Generates cadence_text with technique feedback
+   - Compares splits with previous similar workouts (splits_comparison)
+   - Returns rag_sources indicating what detailed data was used
+
+4. **Frontend - WorkoutDetail.jsx**
+   - **NEW: Split Analysis Card** (`data-testid="split-analysis-card"`)
+     - Blue background (bg-blue-500/10)
+     - Shows fastest/slowest km with pace
+     - Shows pace drop in s/km
+     - Shows consistency score percentage
+     - Shows negative split indicator
+   - **NEW: HR Analysis Card** (`data-testid="hr-analysis-card"`)
+     - Red background (bg-red-500/10)
+     - Shows min/avg/max HR in bpm
+     - Shows HR drift with hydration warning when >10 bpm
+   - **Comparison section** now shows splits_comparison text
+
+**Example Split Analysis Card:**
+```
+ANALYSE DES SPLITS
+Km le + rapide: Km 3 (7:13)    Km le + lent: Km 10 (11:11)
+Écart allure: +238s/km         Régularité: 60%
+```
+
+**Example HR Analysis Card:**
+```
+ANALYSE CARDIAQUE
+Min: 86 bpm    Moy: 128 bpm    Max: 139 bpm
+Dérive cardiaque: +25 bpm (Hydratation à surveiller)
+```
+
+**Test Report:** `/app/test_reports/iteration_21.json` (100% pass rate - 43 backend + 11 frontend tests)
+
 ### P1 - High Priority (Next)
 - Allow user to configure personal max HR in Settings
 
