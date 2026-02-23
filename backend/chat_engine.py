@@ -1358,9 +1358,32 @@ SHORT_RESPONSES = {
 
 
 def detect_intent(message: str) -> Tuple[str, float]:
-    """Détecte l'intention/catégorie du message"""
+    """Détecte l'intention/catégorie du message avec compréhension du type de question"""
     message_lower = message.lower()
     
+    # ============================================================
+    # ÉTAPE 1: Détecter le TYPE de question (améliorer, analyser, etc.)
+    # ============================================================
+    question_type = "general"
+    
+    # Détection des questions "comment améliorer / progresser"
+    ameliorer_keywords = ["améliorer", "ameliorer", "progresser", "augmenter", "booster", "optimiser", "gagner", "passer de", "passer à", "descendre", "baisser mon"]
+    if any(kw in message_lower for kw in ameliorer_keywords):
+        question_type = "ameliorer"
+    
+    # Détection des questions d'analyse/bilan
+    analyse_keywords = ["analyse", "bilan", "comment va", "où j'en suis", "mon niveau", "ma forme"]
+    if any(kw in message_lower for kw in analyse_keywords):
+        question_type = "analyse"
+    
+    # Détection des questions de conseil
+    conseil_keywords = ["conseil", "recommand", "que faire", "quoi faire", "tu me conseilles", "tu penses"]
+    if any(kw in message_lower for kw in conseil_keywords):
+        question_type = "conseil"
+    
+    # ============================================================
+    # ÉTAPE 2: Détecter le SUJET (allure, fatigue, récup, etc.)
+    # ============================================================
     best_category = "fallback"
     best_score = 0
     
@@ -1382,6 +1405,22 @@ def detect_intent(message: str) -> Tuple[str, float]:
         if score > best_score:
             best_score = score
             best_category = category
+    
+    # ============================================================
+    # ÉTAPE 3: Combiner type + sujet pour une catégorie finale
+    # ============================================================
+    
+    # Si c'est une question d'amélioration sur l'allure/cadence
+    if question_type == "ameliorer" and best_category == "allure_cadence":
+        return "ameliorer_allure", 0.9
+    
+    # Si c'est une question d'amélioration sur l'endurance/plan
+    if question_type == "ameliorer" and best_category in ["plan", "semaine"]:
+        return "ameliorer_endurance", 0.9
+    
+    # Si c'est une question d'amélioration générale
+    if question_type == "ameliorer" and best_score < 2:
+        return "ameliorer_general", 0.8
     
     # Seuil minimum pour éviter les faux positifs
     confidence = min(best_score / 4, 1.0) if best_score > 0 else 0
