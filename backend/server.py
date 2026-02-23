@@ -2999,32 +2999,64 @@ async def get_rag_dashboard(user_id: str = "default"):
 
 @api_router.get("/rag/weekly-review")
 async def get_rag_weekly_review(user_id: str = "default"):
-    """Get RAG-enriched weekly review"""
-    # Fetch workouts - no user_id filter to match main endpoint behavior
+    """Get RAG-enriched weekly review with GPT-4o-mini enhancement"""
+    # Fetch workouts
     workouts = await db.workouts.find(
-        {},  # No filter - workouts in DB have user_id=None
+        {},
         {"_id": 0}
     ).sort("date", -1).limit(50).to_list(length=50)
     
     # Fetch previous bilans
     bilans = await db.digests.find(
-        {},  # No filter for consistency
+        {},
         {"_id": 0}
     ).sort("generated_at", -1).limit(8).to_list(length=8)
     
     # Fetch user goal
     user_goal = await db.user_goals.find_one({}, {"_id": 0})
     
-    # Generate RAG-enriched review
+    # Generate RAG-enriched review (calculs 100% Python local)
     result = generate_weekly_review_rag(workouts, bilans, user_goal)
     
+    # ENRICHISSEMENT GPT-4o-mini avec données ANONYMISÉES
+    enriched_summary = result["summary"]
+    used_llm = False
+    
+    try:
+        # Préparer les stats anonymisées (pas de données brutes Strava)
+        anonymized_stats = {
+            "km_semaine": result["metrics"].get("km_total", 0),
+            "nb_seances": result["metrics"].get("nb_seances", 0),
+            "allure_moy": result["metrics"].get("allure_moyenne", "N/A"),
+            "cadence_moy": result["metrics"].get("cadence_moyenne", 0),
+            "pct_endurance": result["metrics"].get("zones", {}).get("z1", 0) + result["metrics"].get("zones", {}).get("z2", 0),
+            "pct_intensite": result["metrics"].get("zones", {}).get("z4", 0) + result["metrics"].get("zones", {}).get("z5", 0),
+            "ratio_charge": result["metrics"].get("ratio", 1.0),
+            "points_forts": result.get("points_forts", []),
+            "points_ameliorer": result.get("points_ameliorer", []),
+            "tendance": result["comparison"].get("evolution", "stable"),
+        }
+        
+        llm_summary, llm_success, _ = await enrich_weekly_review(
+            anonymized_stats=anonymized_stats,
+            user_id=user_id
+        )
+        
+        if llm_success and llm_summary:
+            enriched_summary = llm_summary
+            used_llm = True
+            logger.info(f"[RAG] ✅ Bilan hebdo enrichi GPT pour user {user_id}")
+    except Exception as e:
+        logger.warning(f"[RAG] Bilan hebdo fallback templates: {e}")
+    
     return {
-        "rag_summary": result["summary"],
+        "rag_summary": enriched_summary,
         "metrics": result["metrics"],
         "comparison": result["comparison"],
         "points_forts": result["points_forts"],
         "points_ameliorer": result["points_ameliorer"],
         "tips": result["tips"],
+        "enriched_by_llm": used_llm,
         "generated_at": datetime.now(timezone.utc).isoformat()
     }
 
