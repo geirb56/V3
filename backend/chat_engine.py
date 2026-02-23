@@ -1916,6 +1916,19 @@ def fill_template(template: str, context: Dict) -> str:
         "ratio_implication": "tu peux y aller" if context.get("ratio", 1.0) <= 1.2 else "récupère un peu d'abord",
         "progression": "une bonne régularité" if context.get("nb_seances", 0) >= 2 else "une marge de progression",
         "progression_action": "consolider cette base" if context.get("nb_seances", 0) >= 2 else "augmenter le volume progressivement",
+        
+        # Variables pour prépa course (fallback values)
+        "distance": context.get("goal_distance", "ta course"),
+        "phase_prepa": "d'entraînement" if context.get("jours_course", 30) > 14 else "d'affûtage",
+        "phase_conseil": "Continue le travail spécifique." if context.get("jours_course", 30) > 14 else "Réduis le volume, maintiens l'intensité.",
+        "temps_estime": _get_temps_estime(context),
+        "charge_comment": _get_charge_comment(context),
+        "zones_analyse": "une bonne base d'endurance" if context.get("zones", {}).get("z2", 0) > 40 else "beaucoup de tempo",
+        "zones_recommandation": "Continue comme ça !" if context.get("zones", {}).get("z2", 0) > 40 else "Ajoute plus d'endurance fondamentale.",
+        
+        # Variables génériques
+        "duree_totale": _get_duree_totale(context),
+        "km_moyenne": str(round(context.get("km_semaine", 0) / max(context.get("nb_seances", 1), 1), 1)),
     }
     
     # Remplacer les placeholders
