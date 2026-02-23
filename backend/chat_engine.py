@@ -1233,6 +1233,31 @@ TEMPLATES = {
         "relances": []
     },
     
+    # ==================== CATÉGORIE 19g: ÉQUILIBRE SÉANCES (80/20) ====================
+    "equilibre_seances": {
+        "keywords": [],
+        "intros": [
+            "L'équilibre entre fractionné et endurance, super question ! ⚖️",
+            "Le ratio 80/20, parlons-en !",
+            "Comment répartir tes séances, c'est LA question clé !",
+            "L'entraînement polarisé, excellent sujet !",
+        ],
+        "analyses": [
+            "La règle d'or = **80/20** :\n• 80% du volume en endurance facile (Z1-Z2)\n• 20% en intensité (fractionné, seuil, VMA)\n\nToi actuellement : {z1z2}% en endurance, {z4z5}% en intensité.",
+            "Avec {nb_seances} séances/sem, voici une répartition idéale :\n• 2-3 séances faciles (endurance)\n• 1-2 séances qualité (fractionné ou seuil)\n• 0-1 sortie longue",
+            "L'erreur classique : trop de séances en zone 3 (tempo). C'est la 'zone grise' - ni assez facile pour récupérer, ni assez dur pour progresser.",
+            "Le modèle polarisé (séances très faciles OU très dures, peu de juste milieu) est prouvé comme le plus efficace pour progresser.",
+        ],
+        "conseils": [
+            "Répartition recommandée pour {nb_seances} séances/sem :\n• {nb_seances_faciles} séances en endurance facile (Z2)\n• {nb_seances_qualite} séance(s) de qualité (fractionné/seuil)\n• 1 sortie longue si possible",
+            "Exemple de semaine équilibrée :\n• Lundi : Repos\n• Mardi : Fractionné court (8x400m)\n• Mercredi : Footing facile 45min\n• Jeudi : Repos ou footing récup\n• Vendredi : Seuil (3x10min)\n• Samedi : Footing facile\n• Dimanche : Sortie longue 1h30",
+            "Le piège du 'no pain no gain' : courir dur à chaque sortie = fatigue chronique + stagnation. Les sorties faciles sont AUSSI importantes !",
+            "Pour respecter le 80/20 : utilise un cardio et force-toi à rester en Z2 sur les sorties faciles. C'est contre-intuitif mais ça marche !",
+            "Si tu fais 3 séances/sem : 2 faciles + 1 qualité. Si tu fais 5 séances/sem : 3-4 faciles + 1-2 qualité. Ne dépasse jamais 20% d'intensité !",
+        ],
+        "relances": []
+    },
+    
     # ==================== CATÉGORIE 20: FALLBACK ====================
     "fallback": {
         "keywords": [],  # Pas de keywords, c'est le fallback
