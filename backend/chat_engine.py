@@ -1700,6 +1700,88 @@ def _get_recup_conseil(context: Dict) -> str:
     return random.choice(conseils)
 
 
+def _get_allure_comment(context: Dict) -> str:
+    """Génère un commentaire sur l'allure actuelle"""
+    allure = context.get("allure", "N/A")
+    if allure == "N/A":
+        return "pas de données d'allure disponibles"
+    
+    # Extraire les minutes et secondes
+    try:
+        parts = allure.split(":")
+        pace_min = float(parts[0]) + float(parts[1]) / 60
+    except:
+        return "solide"
+    
+    if pace_min < 4.5:
+        return "vraiment rapide, niveau compétiteur"
+    elif pace_min < 5.0:
+        return "très solide, tu as un bon niveau"
+    elif pace_min < 5.5:
+        return "solide, tu cours bien"
+    elif pace_min < 6.0:
+        return "correct, y'a de la marge pour progresser"
+    elif pace_min < 6.5:
+        return "dans la moyenne, c'est bien"
+    elif pace_min < 7.0:
+        return "correct pour un coureur régulier"
+    else:
+        return "on peut améliorer ça progressivement"
+
+
+def _get_volume_comment(context: Dict) -> str:
+    """Génère un commentaire sur le volume d'entraînement"""
+    km_semaine = context.get("km_semaine", 0)
+    
+    if km_semaine >= 60:
+        return "très élevé, attention à la récupération"
+    elif km_semaine >= 40:
+        return "solide pour une préparation sérieuse"
+    elif km_semaine >= 30:
+        return "bon volume pour progresser"
+    elif km_semaine >= 20:
+        return "correct, tu peux augmenter progressivement"
+    elif km_semaine >= 10:
+        return "un bon début, y'a de la marge"
+    else:
+        return "léger, tu peux ajouter du volume si tu te sens bien"
+
+
+def _get_allure_cible(context: Dict) -> str:
+    """Génère une allure cible réaliste (30 sec/km plus rapide que l'actuelle)"""
+    allure = context.get("allure", "N/A")
+    if allure == "N/A":
+        return "5:30"
+    
+    try:
+        parts = allure.split(":")
+        pace_min = float(parts[0]) + float(parts[1]) / 60
+        # Cible = 30 sec/km plus rapide
+        target_pace = pace_min - 0.5
+        target_min = int(target_pace)
+        target_sec = int((target_pace - target_min) * 60)
+        return f"{target_min}:{target_sec:02d}"
+    except:
+        return "5:30"
+
+
+def _get_analyse_progression(context: Dict) -> str:
+    """Génère une analyse de progression basée sur les données"""
+    km_semaine = context.get("km_semaine", 0)
+    nb_seances = context.get("nb_seances", 0)
+    zones = context.get("zones", {})
+    z1z2 = zones.get("z1", 0) + zones.get("z2", 0)
+    
+    if nb_seances >= 4 and z1z2 >= 50:
+        return "tu as une bonne base, tu peux viser plus de travail spécifique"
+    elif nb_seances >= 3:
+        return "tu as de la régularité, on peut monter en intensité"
+    elif km_semaine >= 20:
+        return "ton volume est correct, ajoute de la variété"
+    else:
+        return "tu démarres bien, la priorité c'est la régularité"
+
+
 def fill_template(template: str, context: Dict) -> str:
     """Remplit un template avec les données du contexte"""
     # Créer un dictionnaire de remplacement avec des valeurs par défaut
