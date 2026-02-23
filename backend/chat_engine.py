@@ -1548,6 +1548,42 @@ def _get_conseil_global(context: Dict) -> str:
         return "Continue comme ça !"
 
 
+def _get_recup_besoin(context: Dict) -> str:
+    """Génère le besoin en récupération"""
+    ratio = context.get("ratio", 1.0)
+    km = context.get("km_semaine", 0)
+    nb = context.get("nb_seances", 0)
+    
+    if ratio > 1.5:
+        return "plusieurs jours de repos ou récup très légère"
+    elif ratio > 1.2:
+        return "au moins 2 jours de récup active"
+    elif km >= 40:
+        return "1-2 jours de récup active entre les grosses séances"
+    elif nb >= 4:
+        return "bien alterner effort et récup"
+    else:
+        return "maintenir un bon équilibre effort/repos"
+
+
+def _get_recup_conseil(context: Dict) -> str:
+    """Génère un conseil de récupération"""
+    ratio = context.get("ratio", 1.0)
+    
+    conseils = [
+        "Hydrate-toi bien et dors suffisamment.",
+        "Le foam roller peut aider à détendre les muscles.",
+        "Une marche légère aide à récupérer activement.",
+        "Les étirements doux après chaque sortie aident.",
+        "Le sommeil est ton meilleur allié pour récupérer."
+    ]
+    
+    if ratio > 1.3:
+        conseils.insert(0, "Cette semaine, privilégie le repos.")
+    
+    return random.choice(conseils)
+
+
 def fill_template(template: str, context: Dict) -> str:
     """Remplit un template avec les données du contexte"""
     # Créer un dictionnaire de remplacement avec des valeurs par défaut
