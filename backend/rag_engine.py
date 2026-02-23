@@ -857,6 +857,7 @@ def generate_weekly_review_rag(
     comparaison_template = random.choice(WEEKLY_TEMPLATES["comparaisons"])
     comparaison_text = comparaison_template.format(
         comparaison_detail=comparaison,
+        comparatif_detail=comparaison,  # Alias pour les templates avec cette variante
         comparaison_volume=f"{km_semaine} km vs {km_prev} km",
         comparaison_intensite="intensité stable",
         evolution_4w="progression régulière" if km_semaine > km_prev else "maintien",
