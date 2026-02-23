@@ -4828,10 +4828,18 @@ async def send_chat_message(request: ChatRequest):
             else:
                 response_text = chat_result
         
-        # Générer des suggestions si pas déjà fait
-        if not suggestions:
-            from chat_engine import generate_smart_suggestions
-            suggestions = generate_smart_suggestions(request.message, context, category)
+        # Générer des suggestions si pas déjà fait (utilise le système existant)
+        if not suggestions and not used_llm:
+            # Les suggestions viennent du système de templates
+            pass
+        elif used_llm and not suggestions:
+            # Suggestions par défaut pour les réponses LLM
+            suggestions = [
+                "Comment équilibrer mes zones d'entraînement ?",
+                f"Comment améliorer mon allure de {context.get('allure', '6:00')}/km ?",
+                "Quels exercices de renforcement faire ?",
+                "Comment travailler plus en endurance fondamentale ?"
+            ]
     
     # Store user message
     user_msg_id = str(uuid.uuid4())
