@@ -4555,6 +4555,12 @@ async def get_training_plan(user_id: str = "default"):
     event_date = goal["event_date"]
     cycle_weeks = goal["cycle_weeks"]
     
+    # Convertir en datetime aware si nécessaire
+    if isinstance(start_date, datetime) and start_date.tzinfo is None:
+        start_date = start_date.replace(tzinfo=timezone.utc)
+    if isinstance(event_date, datetime) and event_date.tzinfo is None:
+        event_date = event_date.replace(tzinfo=timezone.utc)
+    
     if today < start_date:
         current_week = 0
         days_until_start = (start_date - today).days
