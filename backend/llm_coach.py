@@ -13,6 +13,7 @@ Flux:
 
 import os
 import time
+import json
 import asyncio
 import logging
 from typing import Dict, List, Optional, Tuple
@@ -26,7 +27,7 @@ logger = logging.getLogger(__name__)
 EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
 LLM_MODEL = "gpt-4.1-mini"
 LLM_PROVIDER = "openai"
-LLM_TIMEOUT = 10
+LLM_TIMEOUT = 15
 
 # ============================================================
 # PROMPTS SYSTÈME
@@ -69,6 +70,9 @@ Structure :
 
 Sois concret et encourageant. Max 4-5 phrases."""
 
+SYSTEM_PROMPT_PLAN = """Tu es un coach running expert élite spécialisé en périodisation.
+Répond UNIQUEMENT en JSON valide, sans texte avant ou après."""
+
 
 # ============================================================
 # FONCTIONS D'ENRICHISSEMENT
@@ -80,17 +84,12 @@ async def enrich_chat_response(
     conversation_history: List[Dict],
     user_id: str = "unknown"
 ) -> Tuple[Optional[str], bool, Dict]:
-    """
-    Enrichit la réponse chat avec GPT-4o-mini.
-    """
-    context_str = _format_context(context)
-    history_str = _format_history(conversation_history)
-    
+    """Enrichit la réponse chat avec GPT-4o-mini."""
     prompt = f"""DONNÉES UTILISATEUR:
-{context_str}
+{_format_context(context)}
 
 HISTORIQUE CONVERSATION:
-{history_str}
+{_format_history(conversation_history)}
 
 QUESTION: {user_message}
 
@@ -103,13 +102,9 @@ async def enrich_weekly_review(
     stats: Dict,
     user_id: str = "unknown"
 ) -> Tuple[Optional[str], bool, Dict]:
-    """
-    Enrichit le bilan hebdomadaire avec GPT-4o-mini.
-    """
-    context_str = _format_context(stats)
-    
+    """Enrichit le bilan hebdomadaire avec GPT-4o-mini."""
     prompt = f"""STATS SEMAINE:
-{context_str}
+{_format_context(stats)}
 
 Génère un bilan hebdomadaire motivant et personnalisé basé sur ces données."""
 
@@ -120,17 +115,197 @@ async def enrich_workout_analysis(
     workout: Dict,
     user_id: str = "unknown"
 ) -> Tuple[Optional[str], bool, Dict]:
-    """
-    Enrichit l'analyse d'une séance avec GPT-4o-mini.
-    """
-    context_str = _format_context(workout)
-    
+    """Enrichit l'analyse d'une séance avec GPT-4o-mini."""
     prompt = f"""DONNÉES SÉANCE:
-{context_str}
+{_format_context(workout)}
 
 Analyse cette séance en tant que coach running bienveillant."""
 
     return await _call_gpt(SYSTEM_PROMPT_SEANCE, prompt, user_id, "seance")
+
+
+async def generate_cycle_week(
+    context: Dict,
+    phase: str,
+    target_load: int,
+    goal: str,
+    user_id: str = "unknown"
+) -> Tuple[Optional[Dict], bool, Dict]:
+    """
+    Génère un plan de semaine d'entraînement structuré.
+    
+    Args:
+        context: Données de fitness (CTL, ATL, TSB, ACWR, weekly_km)
+        phase: Phase actuelle (build, deload, intensification, taper, race)
+        target_load: Charge cible en TSS
+        goal: Objectif (5K, 10K, SEMI, MARATHON, ULTRA)
+        user_id: ID utilisateur
+        
+    Returns:
+        (plan_dict, success, metadata)
+    """
+    prompt = f"""Tu es un coach running expert élite.
+
+Objectif : {goal}
+Phase : {phase}
+Charge cible : {target_load}
+
+Données athlète :
+CTL: {context.get('ctl', 40)}
+ATL: {context.get('atl', 45)}
+TSB: {context.get('tsb', -5)}
+ACWR: {round(context.get('acwr', 1.0), 2)}
+Volume hebdo: {context.get('weekly_km', 30)} km
+
+Règles :
+- Respecte progressivité (max +10% volume/semaine)
+- Ajuste long run selon objectif
+- Marathon = sortie longue prioritaire (30-35% du volume)
+- Semi = tempo et seuil (20-25% intensité)
+- 10K = VMA et seuil (25-30% intensité)
+- 5K = VMA et vitesse (30% intensité)
+- Si ACWR > 1.3 : réduire la charge
+- Si TSB < -20 : ajouter repos
+
+Répond UNIQUEMENT en JSON valide :
+
+{{
+  "focus": "{phase}",
+  "planned_load": {target_load},
+  "weekly_km": 0,
+  "sessions": [
+    {{
+      "day": "Lundi",
+      "type": "Repos",
+      "duration": "0min",
+      "details": "Récupération complète",
+      "intensity": "rest",
+      "estimated_tss": 0
+    }},
+    {{
+      "day": "Mardi",
+      "type": "Endurance",
+      "duration": "45min",
+      "details": "Footing facile en zone 2",
+      "intensity": "easy",
+      "estimated_tss": 45
+    }},
+    {{
+      "day": "Mercredi",
+      "type": "Fractionné",
+      "duration": "50min",
+      "details": "10x400m à allure 5K, récup 1min30",
+      "intensity": "hard",
+      "estimated_tss": 70
+    }},
+    {{
+      "day": "Jeudi",
+      "type": "Récupération",
+      "duration": "30min",
+      "details": "Footing très léger",
+      "intensity": "easy",
+      "estimated_tss": 25
+    }},
+    {{
+      "day": "Vendredi",
+      "type": "Repos",
+      "duration": "0min",
+      "details": "Récupération ou cross-training léger",
+      "intensity": "rest",
+      "estimated_tss": 0
+    }},
+    {{
+      "day": "Samedi",
+      "type": "Tempo",
+      "duration": "40min",
+      "details": "20min à allure semi-marathon",
+      "intensity": "moderate",
+      "estimated_tss": 55
+    }},
+    {{
+      "day": "Dimanche",
+      "type": "Sortie longue",
+      "duration": "90min",
+      "details": "Sortie longue progressive, derniers 20min à allure marathon",
+      "intensity": "moderate",
+      "estimated_tss": 100
+    }}
+  ],
+  "advice": "Conseil personnalisé pour la semaine"
+}}"""
+
+    start_time = time.time()
+    metadata = {
+        "model": LLM_MODEL,
+        "provider": LLM_PROVIDER,
+        "context_type": "cycle_week",
+        "duration_sec": 0,
+        "success": False
+    }
+    
+    if not EMERGENT_LLM_KEY or not EMERGENT_LLM_KEY.startswith("sk-emergent"):
+        logger.warning("[LLM] Emergent LLM Key non configurée")
+        return None, False, metadata
+    
+    try:
+        from emergentintegrations.llm.chat import LlmChat, UserMessage
+        
+        session_id = f"cardiocoach_plan_{user_id}_{int(time.time())}"
+        
+        chat = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=session_id,
+            system_message=SYSTEM_PROMPT_PLAN
+        ).with_model(LLM_PROVIDER, LLM_MODEL)
+        
+        response = await asyncio.wait_for(
+            chat.send_message(UserMessage(text=prompt)),
+            timeout=LLM_TIMEOUT
+        )
+        
+        elapsed = time.time() - start_time
+        metadata["duration_sec"] = round(elapsed, 2)
+        
+        # Parser le JSON
+        response_text = str(response).strip()
+        
+        # Nettoyer si markdown
+        if response_text.startswith("```json"):
+            response_text = response_text[7:]
+        if response_text.startswith("```"):
+            response_text = response_text[3:]
+        if response_text.endswith("```"):
+            response_text = response_text[:-3]
+        response_text = response_text.strip()
+        
+        plan = json.loads(response_text)
+        
+        # Calculer le volume total
+        total_tss = sum(s.get("estimated_tss", 0) for s in plan.get("sessions", []))
+        plan["total_tss"] = total_tss
+        
+        metadata["success"] = True
+        logger.info(f"[LLM] ✅ Plan semaine généré en {elapsed:.2f}s (TSS: {total_tss})")
+        
+        return plan, True, metadata
+        
+    except json.JSONDecodeError as e:
+        elapsed = time.time() - start_time
+        metadata["duration_sec"] = round(elapsed, 2)
+        logger.error(f"[LLM] ❌ Erreur parsing JSON: {e}")
+        return None, False, metadata
+        
+    except asyncio.TimeoutError:
+        elapsed = time.time() - start_time
+        metadata["duration_sec"] = round(elapsed, 2)
+        logger.warning(f"[LLM] ⏱️ Timeout plan après {elapsed:.2f}s")
+        return None, False, metadata
+        
+    except Exception as e:
+        elapsed = time.time() - start_time
+        metadata["duration_sec"] = round(elapsed, 2)
+        logger.error(f"[LLM] ❌ Erreur plan: {e}")
+        return None, False, metadata
 
 
 # ============================================================
@@ -248,6 +423,7 @@ __all__ = [
     "enrich_chat_response",
     "enrich_weekly_review", 
     "enrich_workout_analysis",
+    "generate_cycle_week",
     "LLM_MODEL",
     "LLM_PROVIDER"
 ]
