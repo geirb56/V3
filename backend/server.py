@@ -45,7 +45,9 @@ from coach_service import (
     weekly_review as coach_weekly_review,
     chat_response as coach_chat_response,
     get_cache_stats,
-    clear_cache
+    clear_cache,
+    get_metrics as get_coach_metrics,
+    reset_metrics as reset_coach_metrics
 )
 
 # Import RAG engine for enriched analyses
