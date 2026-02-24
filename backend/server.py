@@ -137,6 +137,104 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+# ========== RATE LIMITER ==========
+
+class RateLimiter:
+    """Simple in-memory rate limiter"""
+    
+    def __init__(self, requests_per_minute: int = 60, burst_limit: int = 10):
+        self.requests_per_minute = requests_per_minute
+        self.burst_limit = burst_limit
+        self.requests: Dict[str, List[float]] = defaultdict(list)
+    
+    def _cleanup(self, user_id: str) -> None:
+        """Remove old requests outside the window"""
+        now = time.time()
+        cutoff = now - 60  # 1 minute window
+        self.requests[user_id] = [t for t in self.requests[user_id] if t > cutoff]
+    
+    def is_limited(self, user_id: str) -> bool:
+        """Check if user is rate limited"""
+        self._cleanup(user_id)
+        
+        now = time.time()
+        recent = self.requests[user_id]
+        
+        # Check burst (10 requests in last 2 seconds)
+        burst_cutoff = now - 2
+        burst_count = sum(1 for t in recent if t > burst_cutoff)
+        if burst_count >= self.burst_limit:
+            return True
+        
+        # Check rate (60 requests per minute)
+        if len(recent) >= self.requests_per_minute:
+            return True
+        
+        return False
+    
+    def record(self, user_id: str) -> None:
+        """Record a request"""
+        self.requests[user_id].append(time.time())
+    
+    def get_stats(self, user_id: str) -> dict:
+        """Get rate limit stats for user"""
+        self._cleanup(user_id)
+        return {
+            "requests_last_minute": len(self.requests[user_id]),
+            "limit": self.requests_per_minute,
+            "remaining": max(0, self.requests_per_minute - len(self.requests[user_id]))
+        }
+
+
+# Initialize rate limiter
+rate_limiter = RateLimiter(requests_per_minute=60, burst_limit=10)
+
+# Endpoints exempt from rate limiting
+RATE_LIMIT_EXEMPT = {"/api/cache/stats", "/api/strava/callback", "/api/webhooks/strava"}
+
+
+def get_user_id_from_request(request: Request) -> str:
+    """Extract user_id from request"""
+    # Try query param first
+    user_id = request.query_params.get("user_id")
+    if user_id:
+        return user_id
+    
+    # Fallback to IP
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    """Rate limiting middleware"""
+    # Skip exempt endpoints
+    if request.url.path in RATE_LIMIT_EXEMPT:
+        return await call_next(request)
+    
+    # Skip non-API requests
+    if not request.url.path.startswith("/api"):
+        return await call_next(request)
+    
+    user_id = get_user_id_from_request(request)
+    
+    if rate_limiter.is_limited(user_id):
+        logger.warning(f"[RateLimit] User {user_id} exceeded rate limit")
+        return JSONResponse(
+            status_code=429,
+            content={
+                "error": "Too many requests",
+                "retry_after": 60,
+                **rate_limiter.get_stats(user_id)
+            }
+        )
+    
+    rate_limiter.record(user_id)
+    return await call_next(request)
+
+
 # ========== MODELS ==========
 
 class Workout(BaseModel):
