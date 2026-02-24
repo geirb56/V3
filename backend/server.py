@@ -4758,6 +4758,154 @@ async def get_available_goals():
     }
 
 
+@api_router.get("/training/week-plan")
+async def get_week_plan(user_id: str = "default"):
+    """
+    Génère un plan d'entraînement détaillé pour la semaine via LLM.
+    Utilise le contexte d'entraînement et l'objectif défini.
+    """
+    # Récupérer l'objectif
+    goal = await db.training_goals.find_one({"user_id": user_id}, {"_id": 0})
+    
+    if not goal:
+        raise HTTPException(status_code=400, detail="Aucun objectif défini. Utilisez /api/training/set-goal d'abord.")
+    
+    # Récupérer les données récentes pour le contexte
+    today = datetime.now(timezone.utc)
+    seven_days_ago = today - timedelta(days=7)
+    twenty_eight_days_ago = today - timedelta(days=28)
+    
+    workouts_7 = await db.workouts.find({
+        "user_id": user_id,
+        "date": {"$gte": seven_days_ago.isoformat()}
+    }).to_list(100)
+    
+    workouts_28 = await db.workouts.find({
+        "user_id": user_id,
+        "date": {"$gte": twenty_eight_days_ago.isoformat()}
+    }).to_list(100)
+    
+    # Calculer les métriques
+    km_7 = sum(w.get("distance_km", 0) or 0 for w in workouts_7)
+    km_28 = sum(w.get("distance_km", 0) or 0 for w in workouts_28)
+    load_7 = km_7 * 10
+    load_28 = km_28 * 10
+    
+    # Construire le contexte
+    context = {
+        "ctl": load_28 / 4 if load_28 > 0 else 30,
+        "atl": load_7 if load_7 > 0 else 35,
+        "tsb": (load_28 / 4 - load_7) if load_28 > 0 else -5,
+        "acwr": (load_7 / (load_28 / 4)) if load_28 > 0 else 1.0,
+        "weekly_km": km_28 / 4 if km_28 > 0 else 20
+    }
+    
+    # Calculer la phase
+    start_date = goal["start_date"]
+    cycle_weeks = goal["cycle_weeks"]
+    
+    if isinstance(start_date, datetime) and start_date.tzinfo is None:
+        start_date = start_date.replace(tzinfo=timezone.utc)
+    
+    if today < start_date:
+        current_week = 0
+    else:
+        delta_days = (today - start_date).days
+        current_week = min(delta_days // 7 + 1, cycle_weeks + 1)
+    
+    phase = determine_phase(current_week, cycle_weeks)
+    
+    # Calculer la charge cible
+    from training_engine import determine_target_load
+    target_load = determine_target_load(context, phase)
+    
+    # Générer le plan via LLM
+    plan, success, metadata = await generate_cycle_week(
+        context=context,
+        phase=phase,
+        target_load=target_load,
+        goal=goal["goal_type"],
+        user_id=user_id
+    )
+    
+    if not success or not plan:
+        # Fallback: plan générique basé sur la phase
+        plan = _generate_fallback_week_plan(context, phase, target_load, goal["goal_type"])
+    
+    return {
+        "goal": {
+            "type": goal["goal_type"],
+            "name": goal["event_name"],
+            "event_date": goal["event_date"].isoformat() if isinstance(goal["event_date"], datetime) else goal["event_date"]
+        },
+        "current_week": current_week,
+        "total_weeks": cycle_weeks,
+        "phase": phase,
+        "context": context,
+        "plan": plan,
+        "generated_by": "llm" if success else "fallback",
+        "metadata": metadata
+    }
+
+
+def _generate_fallback_week_plan(context: dict, phase: str, target_load: int, goal: str) -> dict:
+    """Génère un plan de secours basé sur des templates."""
+    weekly_km = context.get("weekly_km", 30)
+    
+    # Ajuster selon la phase
+    phase_multipliers = {
+        "build": 1.0,
+        "deload": 0.7,
+        "intensification": 1.05,
+        "taper": 0.6,
+        "race": 0.25
+    }
+    adjusted_km = weekly_km * phase_multipliers.get(phase, 1.0)
+    
+    # Templates par phase
+    if phase == "deload":
+        sessions = [
+            {"day": "Lundi", "type": "Repos", "duration": "0min", "details": "Récupération", "intensity": "rest", "estimated_tss": 0},
+            {"day": "Mardi", "type": "Endurance", "duration": "30min", "details": "Footing léger zone 1-2", "intensity": "easy", "estimated_tss": 25},
+            {"day": "Mercredi", "type": "Repos", "duration": "0min", "details": "Récupération ou étirements", "intensity": "rest", "estimated_tss": 0},
+            {"day": "Jeudi", "type": "Endurance", "duration": "35min", "details": "Footing facile", "intensity": "easy", "estimated_tss": 30},
+            {"day": "Vendredi", "type": "Repos", "duration": "0min", "details": "Récupération", "intensity": "rest", "estimated_tss": 0},
+            {"day": "Samedi", "type": "Endurance", "duration": "40min", "details": "Footing progressif", "intensity": "easy", "estimated_tss": 35},
+            {"day": "Dimanche", "type": "Repos", "duration": "0min", "details": "Récupération complète", "intensity": "rest", "estimated_tss": 0},
+        ]
+    elif phase == "taper":
+        sessions = [
+            {"day": "Lundi", "type": "Repos", "duration": "0min", "details": "Récupération", "intensity": "rest", "estimated_tss": 0},
+            {"day": "Mardi", "type": "Endurance", "duration": "30min", "details": "Footing léger avec 4x100m", "intensity": "easy", "estimated_tss": 30},
+            {"day": "Mercredi", "type": "Repos", "duration": "0min", "details": "Récupération", "intensity": "rest", "estimated_tss": 0},
+            {"day": "Jeudi", "type": "Tempo court", "duration": "25min", "details": "10min à allure course", "intensity": "moderate", "estimated_tss": 35},
+            {"day": "Vendredi", "type": "Repos", "duration": "0min", "details": "Repos complet", "intensity": "rest", "estimated_tss": 0},
+            {"day": "Samedi", "type": "Activation", "duration": "20min", "details": "Footing + 3x200m allure course", "intensity": "easy", "estimated_tss": 25},
+            {"day": "Dimanche", "type": "Repos", "duration": "0min", "details": "Repos avant course", "intensity": "rest", "estimated_tss": 0},
+        ]
+    else:  # build, intensification
+        sessions = [
+            {"day": "Lundi", "type": "Repos", "duration": "0min", "details": "Récupération", "intensity": "rest", "estimated_tss": 0},
+            {"day": "Mardi", "type": "Endurance", "duration": "45min", "details": "Footing zone 2", "intensity": "easy", "estimated_tss": 45},
+            {"day": "Mercredi", "type": "Fractionné", "duration": "50min", "details": "8x400m ou 5x1000m", "intensity": "hard", "estimated_tss": 65},
+            {"day": "Jeudi", "type": "Récupération", "duration": "30min", "details": "Footing très léger", "intensity": "easy", "estimated_tss": 25},
+            {"day": "Vendredi", "type": "Repos", "duration": "0min", "details": "Repos ou cross-training", "intensity": "rest", "estimated_tss": 0},
+            {"day": "Samedi", "type": "Tempo", "duration": "45min", "details": "20-25min à allure semi", "intensity": "moderate", "estimated_tss": 55},
+            {"day": "Dimanche", "type": "Sortie longue", "duration": "75min", "details": f"Sortie longue progressive", "intensity": "moderate", "estimated_tss": 85},
+        ]
+    
+    total_tss = sum(s["estimated_tss"] for s in sessions)
+    
+    return {
+        "focus": phase,
+        "planned_load": target_load,
+        "weekly_km": round(adjusted_km, 1),
+        "sessions": sessions,
+        "total_tss": total_tss,
+        "advice": get_phase_description(phase).get("advice", "Continue sur ta lancée !")
+    }
+
+
 @api_router.get("/subscription/tiers")
 async def get_subscription_tiers():
     """Get all available subscription tiers"""
