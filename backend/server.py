@@ -127,6 +127,9 @@ FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
 # Create the main app
 app = FastAPI()
 
+# GZip compression for responses > 1KB
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
