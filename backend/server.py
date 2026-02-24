@@ -3058,37 +3058,12 @@ async def get_rag_workout_analysis(workout_id: str, user_id: str = "default"):
     # Generate RAG-enriched analysis (calculs 100% Python local)
     result = generate_workout_analysis_rag(workout, all_workouts, user_goal)
     
-    # ENRICHISSEMENT GPT-4o-mini
-    enriched_summary = result["summary"]
-    used_llm = False
-    
-    try:
-        workout_stats = {
-            "distance_km": workout.get("distance_km", 0),
-            "duree_min": workout.get("duration_minutes", 0),
-            "allure": result.get("pace_str", "N/A"),
-            "fc_moy": workout.get("avg_heart_rate"),
-            "fc_max": workout.get("max_heart_rate"),
-            "denivele": workout.get("elevation_gain_m"),
-            "type": workout.get("type"),
-            "zones": workout.get("effort_zone_distribution", {}),
-            "splits": result.get("splits_analysis", {}),
-            "comparison": result.get("comparison", {}).get("progression", ""),
-            "points_forts": result.get("points_forts", []),
-            "points_ameliorer": result.get("points_ameliorer", []),
-        }
-        
-        llm_summary, llm_success, _ = await enrich_workout_analysis(
-            workout=workout_stats,
-            user_id=user_id
-        )
-        
-        if llm_success and llm_summary:
-            enriched_summary = llm_summary
-            used_llm = True
-            logger.info(f"[RAG] ✅ Analyse séance enrichie GPT pour workout {workout_id}")
-    except Exception as e:
-        logger.warning(f"[RAG] Analyse séance fallback templates: {e}")
+    # Enrichissement via coach_service (cascade LLM → déterministe)
+    enriched_summary, used_llm = await coach_analyze_workout(
+        workout=workout,
+        rag_result=result,
+        user_id=user_id
+    )
     
     return {
         "rag_summary": enriched_summary,
