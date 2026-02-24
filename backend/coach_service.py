@@ -14,16 +14,26 @@ Usage:
 import hashlib
 import logging
 import time
+from datetime import datetime, timezone, timedelta
 from dataclasses import dataclass, asdict
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 
 from llm_coach import (
     enrich_chat_response,
     enrich_weekly_review,
     enrich_workout_analysis,
+    generate_cycle_week,
     LLM_MODEL
 )
 from chat_engine import generate_chat_response as generate_template_response
+from training_engine import (
+    GOAL_CONFIG,
+    compute_week_number,
+    determine_phase,
+    build_training_context,
+    determine_target_load,
+    get_phase_description
+)
 
 logger = logging.getLogger(__name__)
 
@@ -35,21 +45,17 @@ logger = logging.getLogger(__name__)
 @dataclass
 class CoachMetrics:
     """Métriques du service de coaching"""
-    # Compteurs
     llm_success: int = 0
     llm_fallback: int = 0
     cache_hits: int = 0
     total_requests: int = 0
-    
-    # Latence (moyenne mobile)
     avg_latency_ms: float = 0.0
     llm_avg_latency_ms: float = 0.0
     cache_avg_latency_ms: float = 0.0
-    
-    # Par type
     workout_requests: int = 0
     weekly_requests: int = 0
     chat_requests: int = 0
+    plan_requests: int = 0
 
 
 metrics = CoachMetrics()
@@ -58,7 +64,6 @@ metrics = CoachMetrics()
 def get_metrics() -> dict:
     """Retourne les métriques actuelles"""
     data = asdict(metrics)
-    # Calculer le taux de succès LLM
     total_llm = metrics.llm_success + metrics.llm_fallback
     data["llm_success_rate"] = round(metrics.llm_success / total_llm * 100, 1) if total_llm > 0 else 0
     data["cache_hit_rate"] = round(metrics.cache_hits / metrics.total_requests * 100, 1) if metrics.total_requests > 0 else 0
@@ -74,10 +79,9 @@ def reset_metrics() -> dict:
 
 
 def _update_latency(latency_ms: float, is_llm: bool = False, is_cache: bool = False) -> None:
-    """Met à jour les moyennes mobiles de latence (exponential moving average)"""
-    alpha = 0.1  # Facteur de lissage
+    """Met à jour les moyennes mobiles de latence"""
+    alpha = 0.1
     metrics.avg_latency_ms = (metrics.avg_latency_ms * (1 - alpha)) + (latency_ms * alpha)
-    
     if is_llm:
         metrics.llm_avg_latency_ms = (metrics.llm_avg_latency_ms * (1 - alpha)) + (latency_ms * alpha)
     if is_cache:
@@ -88,15 +92,15 @@ def _update_latency(latency_ms: float, is_llm: bool = False, is_cache: bool = Fa
 # CACHE CONFIGURATION
 # ============================================================
 
-CACHE_TTL_SECONDS = 3600  # 1 heure
+CACHE_TTL_SECONDS = 3600
 MAX_CACHE_SIZE = 500
 
 _workout_cache: Dict[str, Tuple[dict, float]] = {}
 _weekly_cache: Dict[str, Tuple[dict, float]] = {}
+_plan_cache: Dict[str, Tuple[dict, float]] = {}
 
 
 def _cache_key(data: dict, prefix: str = "") -> str:
-    """Génère une clé de cache basée sur les données."""
     key_parts = [prefix]
     for field in ["id", "distance_km", "duration_minutes", "avg_heart_rate", "type"]:
         key_parts.append(str(data.get(field, "")))
@@ -132,7 +136,6 @@ async def analyze_workout(
     metrics.total_requests += 1
     metrics.workout_requests += 1
     
-    # 1. Vérifier cache
     cache_key = _cache_key(workout, "workout")
     if cache_key in _workout_cache:
         cached_result, timestamp = _workout_cache[cache_key]
@@ -140,13 +143,10 @@ async def analyze_workout(
             metrics.cache_hits += 1
             latency = (time.time() - start) * 1000
             _update_latency(latency, is_cache=True)
-            logger.debug(f"[Cache] Hit workout {cache_key[:8]} ({latency:.1f}ms)")
             return cached_result["summary"], cached_result["used_llm"]
     
-    # 2. Analyse déterministe
     deterministic_summary = rag_result.get("summary", "")
     
-    # 3. Enrichissement LLM
     try:
         workout_stats = {
             "distance_km": workout.get("distance_km", 0),
@@ -172,8 +172,6 @@ async def analyze_workout(
             metrics.llm_success += 1
             latency = (time.time() - start) * 1000
             _update_latency(latency, is_llm=True)
-            logger.info(f"[Coach] ✅ Séance LLM ({latency:.0f}ms)")
-            
             _workout_cache[cache_key] = ({"summary": enriched, "used_llm": True}, time.time())
             _cleanup_cache(_workout_cache)
             return enriched, True
@@ -181,11 +179,9 @@ async def analyze_workout(
     except Exception as e:
         logger.warning(f"[Coach] Séance fallback: {e}")
     
-    # Fallback
     metrics.llm_fallback += 1
     latency = (time.time() - start) * 1000
     _update_latency(latency)
-    
     _workout_cache[cache_key] = ({"summary": deterministic_summary, "used_llm": False}, time.time())
     _cleanup_cache(_workout_cache)
     return deterministic_summary, False
@@ -200,7 +196,6 @@ async def weekly_review(
     metrics.total_requests += 1
     metrics.weekly_requests += 1
     
-    # 1. Clé cache
     m = rag_result.get("metrics", {})
     cache_data = {
         "id": f"weekly_{m.get('nb_seances', 0)}_{m.get('km_total', 0)}",
@@ -209,20 +204,16 @@ async def weekly_review(
     }
     cache_key = _cache_key(cache_data, "weekly")
     
-    # 2. Vérifier cache
     if cache_key in _weekly_cache:
         cached_result, timestamp = _weekly_cache[cache_key]
         if _is_cache_valid(timestamp):
             metrics.cache_hits += 1
             latency = (time.time() - start) * 1000
             _update_latency(latency, is_cache=True)
-            logger.debug(f"[Cache] Hit weekly {cache_key[:8]} ({latency:.1f}ms)")
             return cached_result["summary"], cached_result["used_llm"]
     
-    # 3. Bilan déterministe
     deterministic_summary = rag_result.get("summary", "")
     
-    # 4. Enrichissement LLM
     try:
         weekly_stats = {
             "km_semaine": m.get("km_total", 0),
@@ -245,8 +236,6 @@ async def weekly_review(
             metrics.llm_success += 1
             latency = (time.time() - start) * 1000
             _update_latency(latency, is_llm=True)
-            logger.info(f"[Coach] ✅ Bilan LLM ({latency:.0f}ms)")
-            
             _weekly_cache[cache_key] = ({"summary": enriched, "used_llm": True}, time.time())
             _cleanup_cache(_weekly_cache)
             return enriched, True
@@ -254,11 +243,9 @@ async def weekly_review(
     except Exception as e:
         logger.warning(f"[Coach] Bilan fallback: {e}")
     
-    # Fallback
     metrics.llm_fallback += 1
     latency = (time.time() - start) * 1000
     _update_latency(latency)
-    
     _weekly_cache[cache_key] = ({"summary": deterministic_summary, "used_llm": False}, time.time())
     _cleanup_cache(_weekly_cache)
     return deterministic_summary, False
@@ -277,7 +264,6 @@ async def chat_response(
     metrics.total_requests += 1
     metrics.chat_requests += 1
     
-    # 1. Essayer LLM
     try:
         response, success, meta = await enrich_chat_response(
             user_message=message,
@@ -290,13 +276,11 @@ async def chat_response(
             metrics.llm_success += 1
             latency = (time.time() - start) * 1000
             _update_latency(latency, is_llm=True)
-            logger.info(f"[Coach] ✅ Chat LLM ({latency:.0f}ms)")
             return response, True, meta
             
     except Exception as e:
         logger.warning(f"[Coach] Chat fallback: {e}")
     
-    # 2. Fallback templates
     metrics.llm_fallback += 1
     
     try:
@@ -319,12 +303,244 @@ async def chat_response(
         return "Désolé, je n'ai pas pu traiter ta demande.", False, {}
 
 
+# ============================================================
+# GÉNÉRATION DE PLAN D'ENTRAÎNEMENT DYNAMIQUE
+# ============================================================
+
+async def generate_dynamic_training_plan(db, user_id: str) -> dict:
+    """
+    Génère un plan d'entraînement dynamique basé sur les données utilisateur.
+    
+    Args:
+        db: Instance de base de données MongoDB (async)
+        user_id: ID utilisateur
+        
+    Returns:
+        Plan d'entraînement avec semaine, phase, objectif et séances
+    """
+    start = time.time()
+    metrics.total_requests += 1
+    metrics.plan_requests += 1
+    
+    # 1. Récupérer ou créer le cycle d'entraînement
+    cycle = await db.training_cycles.find_one({"user_id": user_id})
+    
+    if not cycle:
+        # Créer un cycle par défaut
+        default_cycle = {
+            "user_id": user_id,
+            "goal": "SEMI",
+            "start_date": datetime.now(timezone.utc),
+            "race_date": None,
+            "created_at": datetime.now(timezone.utc)
+        }
+        await db.training_cycles.insert_one(default_cycle)
+        cycle = await db.training_cycles.find_one({"user_id": user_id})
+        logger.info(f"[Coach] Cycle créé pour user {user_id}")
+    
+    goal = cycle.get("goal", "SEMI")
+    
+    if goal not in GOAL_CONFIG:
+        goal = "SEMI"
+    
+    config = GOAL_CONFIG[goal]
+    
+    # 2. Calculer la semaine et la phase
+    start_date = cycle.get("start_date")
+    if isinstance(start_date, str):
+        start_date = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
+    if isinstance(start_date, datetime) and start_date.tzinfo is None:
+        start_date = start_date.replace(tzinfo=timezone.utc)
+    
+    week = compute_week_number(start_date.date() if isinstance(start_date, datetime) else start_date)
+    phase = determine_phase(week, config["cycle_weeks"])
+    
+    # 3. Récupérer les données d'entraînement
+    today = datetime.now(timezone.utc)
+    seven_days_ago = today - timedelta(days=7)
+    twenty_eight_days_ago = today - timedelta(days=28)
+    
+    workouts_7 = await db.workouts.find({
+        "user_id": user_id,
+        "date": {"$gte": seven_days_ago.isoformat()}
+    }).to_list(100)
+    
+    workouts_28 = await db.workouts.find({
+        "user_id": user_id,
+        "date": {"$gte": twenty_eight_days_ago.isoformat()}
+    }).to_list(100)
+    
+    # 4. Calculer les métriques
+    km_7 = sum(w.get("distance_km", 0) or 0 for w in workouts_7)
+    km_28 = sum(w.get("distance_km", 0) or 0 for w in workouts_28)
+    weekly_km = km_28 / 4 if km_28 > 0 else 20
+    
+    # Estimation des charges (TSS simplifié: 10 pts/km)
+    load_7 = km_7 * 10
+    load_28 = km_28 * 10
+    
+    fitness_data = {
+        "ctl": load_28 / 4 if load_28 > 0 else 40,
+        "atl": load_7 if load_7 > 0 else 45,
+        "tsb": (load_28 / 4 - load_7) if load_28 > 0 else -5,
+        "load_7": load_7,
+        "load_28": load_28
+    }
+    
+    # 5. Construire le contexte
+    context = build_training_context(fitness_data, weekly_km)
+    
+    # 6. Calculer la charge cible
+    target_load = determine_target_load(context, phase)
+    
+    # 7. Vérifier le cache
+    cache_key = f"plan_{user_id}_{week}_{phase}_{goal}"
+    if cache_key in _plan_cache:
+        cached_plan, timestamp = _plan_cache[cache_key]
+        if _is_cache_valid(timestamp):
+            metrics.cache_hits += 1
+            latency = (time.time() - start) * 1000
+            _update_latency(latency, is_cache=True)
+            logger.debug(f"[Coach] Plan cache hit ({latency:.1f}ms)")
+            return cached_plan
+    
+    # 8. Générer le plan via LLM
+    try:
+        week_plan, success, meta = await generate_cycle_week(
+            context=context,
+            phase=phase,
+            target_load=target_load,
+            goal=goal,
+            user_id=user_id
+        )
+        
+        if success and week_plan:
+            metrics.llm_success += 1
+            latency = (time.time() - start) * 1000
+            _update_latency(latency, is_llm=True)
+            logger.info(f"[Coach] ✅ Plan LLM ({latency:.0f}ms)")
+        else:
+            raise Exception("LLM plan generation failed")
+            
+    except Exception as e:
+        logger.warning(f"[Coach] Plan fallback: {e}")
+        metrics.llm_fallback += 1
+        week_plan = _deterministic_plan(context, phase, target_load, goal)
+    
+    # 9. Construire le résultat
+    result = {
+        "week": week,
+        "phase": phase,
+        "phase_info": get_phase_description(phase),
+        "goal": goal,
+        "goal_config": config,
+        "context": context,
+        "plan": week_plan,
+        "generated_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    # 10. Mettre à jour le cycle en base
+    await db.training_cycles.update_one(
+        {"user_id": user_id},
+        {"$set": {
+            "last_generated_week": week,
+            "current_plan": week_plan,
+            "updated_at": datetime.now(timezone.utc)
+        }}
+    )
+    
+    # 11. Stocker en cache
+    _plan_cache[cache_key] = (result, time.time())
+    _cleanup_cache(_plan_cache)
+    
+    latency = (time.time() - start) * 1000
+    _update_latency(latency)
+    
+    return result
+
+
+def _deterministic_plan(context: dict, phase: str, target_load: int, goal: str) -> dict:
+    """Génère un plan déterministe de secours."""
+    weekly_km = context.get("weekly_km", 30)
+    
+    phase_multipliers = {
+        "build": 1.0,
+        "deload": 0.7,
+        "intensification": 1.05,
+        "taper": 0.6,
+        "race": 0.25
+    }
+    adjusted_km = weekly_km * phase_multipliers.get(phase, 1.0)
+    
+    # Templates par phase
+    if phase == "deload":
+        sessions = [
+            {"day": "Lundi", "type": "Repos", "duration": "0min", "details": "Récupération", "intensity": "rest", "estimated_tss": 0},
+            {"day": "Mardi", "type": "Endurance", "duration": "30min", "details": "Footing léger zone 1-2", "intensity": "easy", "estimated_tss": 25},
+            {"day": "Mercredi", "type": "Repos", "duration": "0min", "details": "Étirements", "intensity": "rest", "estimated_tss": 0},
+            {"day": "Jeudi", "type": "Endurance", "duration": "35min", "details": "Footing facile", "intensity": "easy", "estimated_tss": 30},
+            {"day": "Vendredi", "type": "Repos", "duration": "0min", "details": "Récupération", "intensity": "rest", "estimated_tss": 0},
+            {"day": "Samedi", "type": "Endurance", "duration": "40min", "details": "Footing progressif", "intensity": "easy", "estimated_tss": 35},
+            {"day": "Dimanche", "type": "Repos", "duration": "0min", "details": "Récupération complète", "intensity": "rest", "estimated_tss": 0},
+        ]
+    elif phase == "taper":
+        sessions = [
+            {"day": "Lundi", "type": "Repos", "duration": "0min", "details": "Récupération", "intensity": "rest", "estimated_tss": 0},
+            {"day": "Mardi", "type": "Endurance", "duration": "30min", "details": "Footing léger + 4x100m", "intensity": "easy", "estimated_tss": 30},
+            {"day": "Mercredi", "type": "Repos", "duration": "0min", "details": "Récupération", "intensity": "rest", "estimated_tss": 0},
+            {"day": "Jeudi", "type": "Tempo court", "duration": "25min", "details": "10min à allure course", "intensity": "moderate", "estimated_tss": 35},
+            {"day": "Vendredi", "type": "Repos", "duration": "0min", "details": "Repos complet", "intensity": "rest", "estimated_tss": 0},
+            {"day": "Samedi", "type": "Activation", "duration": "20min", "details": "Footing + 3x200m", "intensity": "easy", "estimated_tss": 25},
+            {"day": "Dimanche", "type": "Repos", "duration": "0min", "details": "Repos avant course", "intensity": "rest", "estimated_tss": 0},
+        ]
+    elif phase == "race":
+        sessions = [
+            {"day": "Lundi", "type": "Repos", "duration": "0min", "details": "Récupération", "intensity": "rest", "estimated_tss": 0},
+            {"day": "Mardi", "type": "Activation", "duration": "20min", "details": "Footing très léger", "intensity": "easy", "estimated_tss": 15},
+            {"day": "Mercredi", "type": "Repos", "duration": "0min", "details": "Repos", "intensity": "rest", "estimated_tss": 0},
+            {"day": "Jeudi", "type": "Activation", "duration": "15min", "details": "Échauffement + 2x100m", "intensity": "easy", "estimated_tss": 10},
+            {"day": "Vendredi", "type": "Repos", "duration": "0min", "details": "Repos complet", "intensity": "rest", "estimated_tss": 0},
+            {"day": "Samedi", "type": "Repos", "duration": "0min", "details": "Veille de course", "intensity": "rest", "estimated_tss": 0},
+            {"day": "Dimanche", "type": "Course", "duration": "Variable", "details": f"COURSE {goal}", "intensity": "race", "estimated_tss": 150},
+        ]
+    else:  # build, intensification
+        sessions = [
+            {"day": "Lundi", "type": "Repos", "duration": "0min", "details": "Récupération", "intensity": "rest", "estimated_tss": 0},
+            {"day": "Mardi", "type": "Endurance", "duration": "45min", "details": "Footing zone 2", "intensity": "easy", "estimated_tss": 45},
+            {"day": "Mercredi", "type": "Fractionné", "duration": "50min", "details": "8x400m ou 5x1000m", "intensity": "hard", "estimated_tss": 65},
+            {"day": "Jeudi", "type": "Récupération", "duration": "30min", "details": "Footing très léger", "intensity": "easy", "estimated_tss": 25},
+            {"day": "Vendredi", "type": "Repos", "duration": "0min", "details": "Repos ou cross-training", "intensity": "rest", "estimated_tss": 0},
+            {"day": "Samedi", "type": "Tempo", "duration": "45min", "details": "20-25min à allure semi", "intensity": "moderate", "estimated_tss": 55},
+            {"day": "Dimanche", "type": "Sortie longue", "duration": "75min", "details": "Sortie longue progressive", "intensity": "moderate", "estimated_tss": 85},
+        ]
+    
+    total_tss = sum(s["estimated_tss"] for s in sessions)
+    
+    return {
+        "focus": phase,
+        "planned_load": target_load,
+        "weekly_km": round(adjusted_km, 1),
+        "sessions": sessions,
+        "total_tss": total_tss,
+        "advice": get_phase_description(phase).get("advice", "Continue sur ta lancée !")
+    }
+
+
+# ============================================================
+# CACHE & UTILS
+# ============================================================
+
 def clear_cache() -> dict:
     """Vide les caches."""
-    global _workout_cache, _weekly_cache
-    result = {"cleared_workout": len(_workout_cache), "cleared_weekly": len(_weekly_cache)}
+    global _workout_cache, _weekly_cache, _plan_cache
+    result = {
+        "cleared_workout": len(_workout_cache),
+        "cleared_weekly": len(_weekly_cache),
+        "cleared_plan": len(_plan_cache)
+    }
     _workout_cache = {}
     _weekly_cache = {}
+    _plan_cache = {}
     return result
 
 
@@ -333,6 +549,7 @@ def get_cache_stats() -> dict:
     return {
         "workout_cache_size": len(_workout_cache),
         "weekly_cache_size": len(_weekly_cache),
+        "plan_cache_size": len(_plan_cache),
         "max_size": MAX_CACHE_SIZE,
         "ttl_seconds": CACHE_TTL_SECONDS
     }
@@ -346,6 +563,7 @@ __all__ = [
     "analyze_workout",
     "weekly_review", 
     "chat_response",
+    "generate_dynamic_training_plan",
     "clear_cache",
     "get_cache_stats",
     "get_metrics",
