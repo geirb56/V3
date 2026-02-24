@@ -4913,6 +4913,20 @@ async def clear_chat_history(user_id: str = "default"):
     return {"success": True, "deleted_count": result.deleted_count}
 
 
+@api_router.get("/cache/stats")
+async def get_coach_cache_stats():
+    """Get coach service cache statistics"""
+    return get_cache_stats()
+
+
+@api_router.delete("/cache/clear")
+async def clear_coach_cache():
+    """Clear all coach service caches"""
+    result = clear_cache()
+    logger.info(f"Cache cleared: {result}")
+    return {"success": True, **result}
+
+
 # Include the router
 app.include_router(api_router)
 
