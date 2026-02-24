@@ -37,7 +37,7 @@ from chat_engine import (
 )
 
 # Import LLM coach module (GPT-4o-mini)
-from llm_coach import LLM_MODEL, LLM_PROVIDER
+from llm_coach import LLM_MODEL, LLM_PROVIDER, generate_cycle_week
 
 # Import coach service (stratégie cascade)
 from coach_service import (
