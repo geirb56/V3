@@ -4427,6 +4427,327 @@ class SubscriptionTierInfo(BaseModel):
     description: str
 
 
+# ========== TRAINING MODELS ==========
+
+class TrainingGoalRequest(BaseModel):
+    goal_type: str = Field(..., description="Type d'objectif: 5K, 10K, SEMI, MARATHON, ULTRA")
+    event_date: str = Field(..., description="Date de l'événement (YYYY-MM-DD)")
+    event_name: Optional[str] = Field(None, description="Nom de la course")
+
+class TrainingGoalResponse(BaseModel):
+    success: bool
+    goal_type: str
+    event_name: Optional[str]
+    event_date: str
+    cycle_weeks: int
+    current_week: int
+    phase: str
+    phase_info: dict
+
+class TrainingPlanResponse(BaseModel):
+    goal: Optional[dict]
+    current_week: int
+    total_weeks: int
+    phase: str
+    phase_info: dict
+    recommendation: dict
+    context: dict
+    days_until_event: Optional[int]
+
+
+# ========== TRAINING ENDPOINTS ==========
+
+@api_router.post("/training/set-goal")
+async def set_training_goal(request: TrainingGoalRequest, user_id: str = "default"):
+    """Définit un objectif d'entraînement"""
+    
+    # Valider le type d'objectif
+    if request.goal_type.upper() not in GOAL_CONFIG:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Type d'objectif invalide. Choisir parmi: {list(GOAL_CONFIG.keys())}"
+        )
+    
+    goal_type = request.goal_type.upper()
+    goal_config = GOAL_CONFIG[goal_type]
+    
+    # Parser la date
+    try:
+        event_date = datetime.fromisoformat(request.event_date).replace(tzinfo=timezone.utc)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Format de date invalide. Utiliser YYYY-MM-DD")
+    
+    # Calculer la date de début du cycle
+    cycle_weeks = goal_config["cycle_weeks"]
+    start_date = event_date - timedelta(weeks=cycle_weeks)
+    
+    # Calculer la semaine actuelle
+    today = datetime.now(timezone.utc)
+    if today < start_date:
+        current_week = 0  # Pas encore commencé
+    else:
+        delta_days = (today - start_date).days
+        current_week = min(delta_days // 7 + 1, cycle_weeks)
+    
+    phase = determine_phase(current_week, cycle_weeks)
+    phase_info = get_phase_description(phase)
+    
+    # Sauvegarder l'objectif
+    goal_doc = {
+        "user_id": user_id,
+        "goal_type": goal_type,
+        "event_name": request.event_name or goal_config["description"],
+        "event_date": event_date,
+        "start_date": start_date,
+        "cycle_weeks": cycle_weeks,
+        "created_at": datetime.now(timezone.utc),
+        "updated_at": datetime.now(timezone.utc)
+    }
+    
+    await db.training_goals.update_one(
+        {"user_id": user_id},
+        {"$set": goal_doc},
+        upsert=True
+    )
+    
+    logger.info(f"[Training] Goal set for user {user_id}: {goal_type} on {request.event_date}")
+    
+    return TrainingGoalResponse(
+        success=True,
+        goal_type=goal_type,
+        event_name=goal_doc["event_name"],
+        event_date=request.event_date,
+        cycle_weeks=cycle_weeks,
+        current_week=current_week,
+        phase=phase,
+        phase_info=phase_info
+    )
+
+
+@api_router.get("/training/plan")
+async def get_training_plan(user_id: str = "default"):
+    """Récupère le plan d'entraînement actuel avec recommandations"""
+    
+    # Récupérer l'objectif
+    goal = await db.training_goals.find_one({"user_id": user_id}, {"_id": 0})
+    
+    if not goal:
+        # Pas d'objectif défini, retourner un plan par défaut
+        return {
+            "goal": None,
+            "current_week": 0,
+            "total_weeks": 0,
+            "phase": "build",
+            "phase_info": get_phase_description("build"),
+            "recommendation": {
+                "advice": "Définis un objectif pour obtenir un plan personnalisé.",
+                "target_km": 0,
+                "distribution": {}
+            },
+            "context": {},
+            "days_until_event": None,
+            "available_goals": list(GOAL_CONFIG.keys())
+        }
+    
+    # Calculer la semaine actuelle
+    today = datetime.now(timezone.utc)
+    start_date = goal["start_date"]
+    event_date = goal["event_date"]
+    cycle_weeks = goal["cycle_weeks"]
+    
+    if today < start_date:
+        current_week = 0
+        days_until_start = (start_date - today).days
+    else:
+        delta_days = (today - start_date).days
+        current_week = min(delta_days // 7 + 1, cycle_weeks + 1)
+        days_until_start = 0
+    
+    days_until_event = (event_date - today).days
+    
+    # Déterminer la phase
+    phase = determine_phase(current_week, cycle_weeks)
+    phase_info = get_phase_description(phase)
+    
+    # Récupérer les données d'entraînement pour le contexte
+    seven_days_ago = today - timedelta(days=7)
+    twenty_eight_days_ago = today - timedelta(days=28)
+    
+    workouts_7 = await db.workouts.find({
+        "user_id": user_id,
+        "date": {"$gte": seven_days_ago.isoformat()}
+    }).to_list(100)
+    
+    workouts_28 = await db.workouts.find({
+        "user_id": user_id,
+        "date": {"$gte": twenty_eight_days_ago.isoformat()}
+    }).to_list(100)
+    
+    # Calculer les métriques
+    km_7 = sum(w.get("distance_km", 0) or 0 for w in workouts_7)
+    km_28 = sum(w.get("distance_km", 0) or 0 for w in workouts_28)
+    
+    # Estimer la charge (simplifié: 10 points par km)
+    load_7 = km_7 * 10
+    load_28 = km_28 * 10
+    
+    # Construire le contexte
+    fitness_data = {
+        "ctl": load_28 / 4 if load_28 > 0 else 30,  # Chronic Training Load
+        "atl": load_7 if load_7 > 0 else 35,        # Acute Training Load
+        "load_7": load_7,
+        "load_28": load_28
+    }
+    
+    weekly_km = km_28 / 4 if km_28 > 0 else 20
+    context = build_training_context(fitness_data, weekly_km)
+    
+    # Générer les recommandations
+    recommendation = generate_week_recommendation(context, phase, goal["goal_type"])
+    
+    return {
+        "goal": {
+            "type": goal["goal_type"],
+            "name": goal["event_name"],
+            "event_date": goal["event_date"].isoformat() if isinstance(goal["event_date"], datetime) else goal["event_date"],
+            "start_date": goal["start_date"].isoformat() if isinstance(goal["start_date"], datetime) else goal["start_date"]
+        },
+        "current_week": current_week,
+        "total_weeks": cycle_weeks,
+        "phase": phase,
+        "phase_info": phase_info,
+        "recommendation": recommendation,
+        "context": context,
+        "days_until_event": days_until_event,
+        "stats": {
+            "km_7_days": round(km_7, 1),
+            "km_28_days": round(km_28, 1),
+            "workouts_7_days": len(workouts_7),
+            "workouts_28_days": len(workouts_28)
+        }
+    }
+
+
+@api_router.post("/training/refresh")
+async def refresh_training_context(user_id: str = "default"):
+    """Rafraîchit le contexte d'entraînement avec les dernières données"""
+    
+    # Récupérer l'objectif
+    goal = await db.training_goals.find_one({"user_id": user_id}, {"_id": 0})
+    
+    if not goal:
+        return {"success": False, "message": "Aucun objectif défini"}
+    
+    # Récupérer les données récentes
+    today = datetime.now(timezone.utc)
+    seven_days_ago = today - timedelta(days=7)
+    twenty_eight_days_ago = today - timedelta(days=28)
+    
+    workouts_7 = await db.workouts.find({
+        "user_id": user_id,
+        "date": {"$gte": seven_days_ago.isoformat()}
+    }).to_list(100)
+    
+    workouts_28 = await db.workouts.find({
+        "user_id": user_id,
+        "date": {"$gte": twenty_eight_days_ago.isoformat()}
+    }).to_list(100)
+    
+    # Calculer les métriques
+    km_7 = sum(w.get("distance_km", 0) or 0 for w in workouts_7)
+    km_28 = sum(w.get("distance_km", 0) or 0 for w in workouts_28)
+    load_7 = km_7 * 10
+    load_28 = km_28 * 10
+    
+    # Calculer les charges quotidiennes pour la monotonie
+    daily_loads = []
+    for i in range(7):
+        day = today - timedelta(days=i)
+        day_str = day.strftime("%Y-%m-%d")
+        day_km = sum(
+            w.get("distance_km", 0) or 0 
+            for w in workouts_7 
+            if w.get("date", "").startswith(day_str)
+        )
+        daily_loads.append(day_km * 10)
+    
+    # Construire le contexte complet
+    fitness_data = {
+        "ctl": load_28 / 4 if load_28 > 0 else 30,
+        "atl": load_7 if load_7 > 0 else 35,
+        "load_7": load_7,
+        "load_28": load_28
+    }
+    
+    weekly_km = km_28 / 4 if km_28 > 0 else 20
+    context = build_training_context(fitness_data, weekly_km, daily_loads)
+    
+    # Calculer la semaine et phase
+    start_date = goal["start_date"]
+    cycle_weeks = goal["cycle_weeks"]
+    
+    if today < start_date:
+        current_week = 0
+    else:
+        delta_days = (today - start_date).days
+        current_week = min(delta_days // 7 + 1, cycle_weeks + 1)
+    
+    phase = determine_phase(current_week, cycle_weeks)
+    
+    # Sauvegarder le contexte
+    await db.training_context.update_one(
+        {"user_id": user_id},
+        {"$set": {
+            "user_id": user_id,
+            "context": context,
+            "current_week": current_week,
+            "phase": phase,
+            "updated_at": datetime.now(timezone.utc)
+        }},
+        upsert=True
+    )
+    
+    logger.info(f"[Training] Context refreshed for user {user_id}: week {current_week}, phase {phase}")
+    
+    return {
+        "success": True,
+        "current_week": current_week,
+        "phase": phase,
+        "context": context,
+        "recommendation": generate_week_recommendation(context, phase, goal["goal_type"])
+    }
+
+
+@api_router.delete("/training/goal")
+async def delete_training_goal(user_id: str = "default"):
+    """Supprime l'objectif d'entraînement"""
+    
+    result = await db.training_goals.delete_one({"user_id": user_id})
+    await db.training_context.delete_one({"user_id": user_id})
+    
+    return {
+        "success": result.deleted_count > 0,
+        "message": "Objectif supprimé" if result.deleted_count > 0 else "Aucun objectif trouvé"
+    }
+
+
+@api_router.get("/training/goals")
+async def get_available_goals():
+    """Liste les types d'objectifs disponibles"""
+    return {
+        "goals": [
+            {
+                "type": goal_type,
+                "description": config["description"],
+                "cycle_weeks": config["cycle_weeks"],
+                "long_run_ratio": config["long_run_ratio"],
+                "intensity_pct": config["intensity_pct"]
+            }
+            for goal_type, config in GOAL_CONFIG.items()
+        ]
+    }
+
+
 @api_router.get("/subscription/tiers")
 async def get_subscription_tiers():
     """Get all available subscription tiers"""
