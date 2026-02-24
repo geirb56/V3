@@ -4857,14 +4857,11 @@ async def send_chat_message(request: ChatRequest):
         ).sort("timestamp", -1).limit(8).to_list(8)
         recent_messages.reverse()  # Ordre chronologique
         
-        # ÉTAPE 1: Anonymiser les données avant envoi à GPT (conformité Strava ToS)
-        anonymized_context = anonymize_weekly_stats(context)
-        
-        # ÉTAPE 2: Essayer GPT-4o-mini avec données ANONYMISÉES uniquement
+        # ÉTAPE 1: Essayer GPT-4o-mini
         try:
             llm_response, llm_success, llm_metadata = await enrich_chat_response(
                 user_message=request.message,
-                anonymized_context=anonymized_context,
+                context=context,
                 conversation_history=recent_messages,
                 user_id=user_id
             )
