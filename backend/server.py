@@ -4735,11 +4735,22 @@ async def delete_training_goal(user_id: str = "default"):
     
     result = await db.training_goals.delete_one({"user_id": user_id})
     await db.training_context.delete_one({"user_id": user_id})
+    await db.training_cycles.delete_one({"user_id": user_id})
     
     return {
         "success": result.deleted_count > 0,
         "message": "Objectif supprimé" if result.deleted_count > 0 else "Aucun objectif trouvé"
     }
+
+
+@api_router.get("/training/dynamic-plan")
+async def get_dynamic_training_plan(user_id: str = "default"):
+    """
+    Génère un plan d'entraînement dynamique basé sur les données utilisateur.
+    Utilise le cycle d'entraînement et génère automatiquement les séances via LLM.
+    """
+    result = await generate_dynamic_training_plan(db, user_id)
+    return result
 
 
 @api_router.get("/training/goals")
