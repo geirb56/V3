@@ -3016,34 +3016,11 @@ async def get_rag_weekly_review(user_id: str = "default"):
     # Generate RAG-enriched review (calculs 100% Python local)
     result = generate_weekly_review_rag(workouts, bilans, user_goal)
     
-    # ENRICHISSEMENT GPT-4o-mini
-    enriched_summary = result["summary"]
-    used_llm = False
-    
-    try:
-        weekly_stats = {
-            "km_semaine": result["metrics"].get("km_total", 0),
-            "nb_seances": result["metrics"].get("nb_seances", 0),
-            "allure_moy": result["metrics"].get("allure_moyenne", "N/A"),
-            "cadence_moy": result["metrics"].get("cadence_moyenne", 0),
-            "zones": result["metrics"].get("zones", {}),
-            "ratio_charge": result["metrics"].get("ratio", 1.0),
-            "points_forts": result.get("points_forts", []),
-            "points_ameliorer": result.get("points_ameliorer", []),
-            "tendance": result["comparison"].get("evolution", "stable"),
-        }
-        
-        llm_summary, llm_success, _ = await enrich_weekly_review(
-            stats=weekly_stats,
-            user_id=user_id
-        )
-        
-        if llm_success and llm_summary:
-            enriched_summary = llm_summary
-            used_llm = True
-            logger.info(f"[RAG] ✅ Bilan hebdo enrichi GPT pour user {user_id}")
-    except Exception as e:
-        logger.warning(f"[RAG] Bilan hebdo fallback templates: {e}")
+    # Enrichissement via coach_service (cascade LLM → déterministe)
+    enriched_summary, used_llm = await coach_weekly_review(
+        rag_result=result,
+        user_id=user_id
+    )
     
     return {
         "rag_summary": enriched_summary,
