@@ -4869,11 +4869,11 @@ async def send_chat_message(request: ChatRequest):
             if llm_success and llm_response:
                 response_text = llm_response
                 used_llm = True
-                logger.info(f"[Chat] ✅ Réponse GPT ({LLM_MODEL}) en {llm_metadata.get('duration_sec', 0)}s pour user {user_id}")
+                logger.info(f"[Chat] ✅ Réponse GPT ({LLM_MODEL}) en {llm_metadata.get('duration_sec', 0)}s")
         except Exception as e:
             logger.warning(f"[Chat] LLM fallback - erreur: {e}")
         
-        # ÉTAPE 3: Fallback vers templates Python si LLM échoue
+        # ÉTAPE 2: Fallback vers templates Python si LLM échoue
         if not response_text:
             logger.info(f"[Chat] Fallback templates Python pour user {user_id}")
             chat_result = await generate_chat_response(
