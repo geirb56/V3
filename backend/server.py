@@ -57,6 +57,17 @@ from rag_engine import (
     generate_workout_analysis_rag
 )
 
+# Import training engine for periodization
+from training_engine import (
+    GOAL_CONFIG,
+    compute_week_number,
+    compute_acwr,
+    determine_phase,
+    get_phase_description,
+    build_training_context,
+    generate_week_recommendation
+)
+
 # Import Stripe integration
 from emergentintegrations.payments.stripe.checkout import (
     StripeCheckout, 
