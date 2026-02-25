@@ -4576,113 +4576,12 @@ async def set_training_goal(request: TrainingGoalRequest, user_id: str = "defaul
 
 
 @api_router.get("/training/plan")
-async def get_training_plan(user_id: str = "default"):
-    """Récupère le plan d'entraînement actuel avec recommandations"""
-    
-    # Récupérer l'objectif
-    goal = await db.training_goals.find_one({"user_id": user_id}, {"_id": 0})
-    
-    if not goal:
-        # Pas d'objectif défini, retourner un plan par défaut
-        return {
-            "goal": None,
-            "current_week": 0,
-            "total_weeks": 0,
-            "phase": "build",
-            "phase_info": get_phase_description("build"),
-            "recommendation": {
-                "advice": "Définis un objectif pour obtenir un plan personnalisé.",
-                "target_km": 0,
-                "distribution": {}
-            },
-            "context": {},
-            "days_until_event": None,
-            "available_goals": list(GOAL_CONFIG.keys())
-        }
-    
-    # Calculer la semaine actuelle
-    today = datetime.now(timezone.utc)
-    start_date = goal["start_date"]
-    event_date = goal["event_date"]
-    cycle_weeks = goal["cycle_weeks"]
-    
-    # Convertir en datetime aware si nécessaire
-    if isinstance(start_date, datetime) and start_date.tzinfo is None:
-        start_date = start_date.replace(tzinfo=timezone.utc)
-    if isinstance(event_date, datetime) and event_date.tzinfo is None:
-        event_date = event_date.replace(tzinfo=timezone.utc)
-    
-    if today < start_date:
-        current_week = 0
-        days_until_start = (start_date - today).days
-    else:
-        delta_days = (today - start_date).days
-        current_week = min(delta_days // 7 + 1, cycle_weeks + 1)
-        days_until_start = 0
-    
-    days_until_event = (event_date - today).days
-    
-    # Déterminer la phase
-    phase = determine_phase(current_week, cycle_weeks)
-    phase_info = get_phase_description(phase)
-    
-    # Récupérer les données d'entraînement pour le contexte
-    seven_days_ago = today - timedelta(days=7)
-    twenty_eight_days_ago = today - timedelta(days=28)
-    
-    workouts_7 = await db.workouts.find({
-        "user_id": user_id,
-        "date": {"$gte": seven_days_ago.isoformat()}
-    }).to_list(100)
-    
-    workouts_28 = await db.workouts.find({
-        "user_id": user_id,
-        "date": {"$gte": twenty_eight_days_ago.isoformat()}
-    }).to_list(100)
-    
-    # Calculer les métriques
-    km_7 = sum(w.get("distance_km", 0) or 0 for w in workouts_7)
-    km_28 = sum(w.get("distance_km", 0) or 0 for w in workouts_28)
-    
-    # Estimer la charge (simplifié: 10 points par km)
-    load_7 = km_7 * 10
-    load_28 = km_28 * 10
-    
-    # Construire le contexte
-    fitness_data = {
-        "ctl": load_28 / 4 if load_28 > 0 else 30,  # Chronic Training Load
-        "atl": load_7 if load_7 > 0 else 35,        # Acute Training Load
-        "load_7": load_7,
-        "load_28": load_28
-    }
-    
-    weekly_km = km_28 / 4 if km_28 > 0 else 20
-    context = build_training_context(fitness_data, weekly_km)
-    
-    # Générer les recommandations
-    recommendation = generate_week_recommendation(context, phase, goal["goal_type"])
-    
-    return {
-        "goal": {
-            "type": goal["goal_type"],
-            "name": goal["event_name"],
-            "event_date": goal["event_date"].isoformat() if isinstance(goal["event_date"], datetime) else goal["event_date"],
-            "start_date": goal["start_date"].isoformat() if isinstance(goal["start_date"], datetime) else goal["start_date"]
-        },
-        "current_week": current_week,
-        "total_weeks": cycle_weeks,
-        "phase": phase,
-        "phase_info": phase_info,
-        "recommendation": recommendation,
-        "context": context,
-        "days_until_event": days_until_event,
-        "stats": {
-            "km_7_days": round(km_7, 1),
-            "km_28_days": round(km_28, 1),
-            "workouts_7_days": len(workouts_7),
-            "workouts_28_days": len(workouts_28)
-        }
-    }
+async def get_training_plan_v2(user: dict = Depends(auth_user)):
+    """
+    Génère ou met à jour le plan d'entraînement dynamique
+    selon les dernières données fitness.
+    """
+    return await generate_dynamic_training_plan(db, user["id"])
 
 
 @api_router.post("/training/refresh")
