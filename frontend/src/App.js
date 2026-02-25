@@ -10,6 +10,7 @@ import Guidance from "@/pages/Guidance";
 import Digest from "@/pages/Digest";
 import Settings from "@/pages/Settings";
 import Subscription from "@/pages/Subscription";
+import TrainingPlan from "@/pages/TrainingPlan";
 import Layout from "@/components/Layout";
 import IOSPWAHint from "@/components/IOSPWAHint";
 
@@ -27,6 +28,7 @@ function App() {
               <Route path="progress" element={<Progress />} />
               <Route path="guidance" element={<Guidance />} />
               <Route path="digest" element={<Digest />} />
+              <Route path="training" element={<TrainingPlan />} />
               <Route path="settings" element={<Settings />} />
               <Route path="subscription" element={<Subscription />} />
             </Route>
