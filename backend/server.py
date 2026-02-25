@@ -4509,70 +4509,31 @@ class TrainingPlanResponse(BaseModel):
 # ========== TRAINING ENDPOINTS ==========
 
 @api_router.post("/training/set-goal")
-async def set_training_goal(request: TrainingGoalRequest, user_id: str = "default"):
-    """Définit un objectif d'entraînement"""
+async def set_training_goal(
+    goal: str = Query(..., description="10K | SEMI | MARATHON"),
+    user: dict = Depends(auth_user)
+):
+    """
+    Définit l'objectif principal du cycle.
+    """
+    if goal.upper() not in ["5K", "10K", "SEMI", "MARATHON", "ULTRA"]:
+        return {"error": "Invalid goal"}
     
-    # Valider le type d'objectif
-    if request.goal_type.upper() not in GOAL_CONFIG:
-        raise HTTPException(
-            status_code=400, 
-            detail=f"Type d'objectif invalide. Choisir parmi: {list(GOAL_CONFIG.keys())}"
-        )
+    goal_upper = goal.upper()
     
-    goal_type = request.goal_type.upper()
-    goal_config = GOAL_CONFIG[goal_type]
-    
-    # Parser la date
-    try:
-        event_date = datetime.fromisoformat(request.event_date).replace(tzinfo=timezone.utc)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Format de date invalide. Utiliser YYYY-MM-DD")
-    
-    # Calculer la date de début du cycle
-    cycle_weeks = goal_config["cycle_weeks"]
-    start_date = event_date - timedelta(weeks=cycle_weeks)
-    
-    # Calculer la semaine actuelle
-    today = datetime.now(timezone.utc)
-    if today < start_date:
-        current_week = 0  # Pas encore commencé
-    else:
-        delta_days = (today - start_date).days
-        current_week = min(delta_days // 7 + 1, cycle_weeks)
-    
-    phase = determine_phase(current_week, cycle_weeks)
-    phase_info = get_phase_description(phase)
-    
-    # Sauvegarder l'objectif
-    goal_doc = {
-        "user_id": user_id,
-        "goal_type": goal_type,
-        "event_name": request.event_name or goal_config["description"],
-        "event_date": event_date,
-        "start_date": start_date,
-        "cycle_weeks": cycle_weeks,
-        "created_at": datetime.now(timezone.utc),
-        "updated_at": datetime.now(timezone.utc)
-    }
-    
-    await db.training_goals.update_one(
-        {"user_id": user_id},
-        {"$set": goal_doc},
+    await db.training_cycles.update_one(
+        {"user_id": user["id"]},
+        {"$set": {
+            "goal": goal_upper,
+            "start_date": datetime.now(timezone.utc),
+            "updated_at": datetime.now(timezone.utc)
+        }},
         upsert=True
     )
     
-    logger.info(f"[Training] Goal set for user {user_id}: {goal_type} on {request.event_date}")
+    logger.info(f"[Training] Goal set for user {user['id']}: {goal_upper}")
     
-    return TrainingGoalResponse(
-        success=True,
-        goal_type=goal_type,
-        event_name=goal_doc["event_name"],
-        event_date=request.event_date,
-        cycle_weeks=cycle_weeks,
-        current_week=current_week,
-        phase=phase,
-        phase_info=phase_info
-    )
+    return {"status": "updated", "goal": goal_upper}
 
 
 @api_router.get("/training/plan")
