@@ -285,6 +285,7 @@ export const translations = {
     // Navigation
     nav: {
       dashboard: "Tableau de bord",
+      training: "Entrainement",
       digest: "Bilan",
       guidance: "Recommandations",
       coach: "Coach",
