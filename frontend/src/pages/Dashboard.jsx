@@ -273,10 +273,10 @@ export default function Dashboard() {
         </p>
         <div className="grid grid-cols-3 gap-2">
           {/* Sessions */}
-          <Card className="bg-card border-border">
+          <Card className="metric-card bg-card border-border animate-in" style={{ animationDelay: "100ms" }}>
             <CardContent className="p-3 text-center">
-              <Activity className="w-4 h-4 text-muted-foreground mx-auto mb-1" />
-              <p className="font-mono text-xl font-bold">{insight?.week?.sessions || 0}</p>
+              <Activity className="w-4 h-4 text-primary/60 mx-auto mb-1" />
+              <p className="font-heading text-2xl font-bold">{insight?.week?.sessions || 0}</p>
               <p className="font-mono text-[9px] uppercase text-muted-foreground">
                 {t("dashboard.sessions")}
               </p>
@@ -284,10 +284,10 @@ export default function Dashboard() {
           </Card>
 
           {/* Volume */}
-          <Card className="bg-card border-border">
+          <Card className="metric-card bg-card border-border animate-in" style={{ animationDelay: "150ms" }}>
             <CardContent className="p-3 text-center">
-              <Scale className="w-4 h-4 text-muted-foreground mx-auto mb-1" />
-              <p className="font-mono text-xl font-bold">{insight?.week?.volume_km || 0}</p>
+              <Scale className="w-4 h-4 text-emerald-400/60 mx-auto mb-1" />
+              <p className="font-heading text-2xl font-bold">{insight?.week?.volume_km || 0}</p>
               <p className="font-mono text-[9px] uppercase text-muted-foreground">
                 {t("dashboard.km")}
               </p>
@@ -295,9 +295,11 @@ export default function Dashboard() {
           </Card>
 
           {/* Load Signal */}
-          <Card className="bg-card border-border">
+          <Card className="metric-card bg-card border-border animate-in" style={{ animationDelay: "200ms" }}>
             <CardContent className="p-3 text-center">
-              <TrendingUp className={`w-4 h-4 mx-auto mb-1 ${getLoadColor(insight?.week?.load_signal)}`} />
+              <div className="flex items-center justify-center gap-2 mb-1">
+                <span className={`signal-dot ${insight?.week?.load_signal || 'balanced'}`}></span>
+              </div>
               <p className={`font-mono text-xs font-bold ${getLoadColor(insight?.week?.load_signal)}`}>
                 {t(`dashboard.load.${insight?.week?.load_signal || "balanced"}`)}
               </p>
