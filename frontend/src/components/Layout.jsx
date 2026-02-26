@@ -129,7 +129,7 @@ export const Layout = () => {
       </main>
 
       {/* Mobile Navigation */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 flex items-center justify-around p-2 border-t border-border bg-background/95 backdrop-blur-sm">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 flex items-center justify-around p-2 border-t border-border bg-background/95 backdrop-blur-md safe-area-pb">
         {navItems.map((item) => {
           const isActive = location.pathname === item.path;
           return (
@@ -137,12 +137,16 @@ export const Layout = () => {
               key={item.path}
               to={item.path}
               data-testid={`mobile-nav-${item.labelKey.split(".")[1]}`}
-              className={`flex flex-col items-center gap-1 p-2 ${
-                isActive ? "text-primary" : "text-muted-foreground"
+              className={`nav-item flex flex-col items-center gap-1 p-2 rounded-lg transition-all ${
+                isActive 
+                  ? "text-primary active" 
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              <item.icon className="w-5 h-5" />
-              <span className="font-mono text-[9px] uppercase tracking-wider">
+              <div className={`p-1.5 rounded-lg transition-colors ${isActive ? "bg-primary/10" : ""}`}>
+                <item.icon className="w-5 h-5" />
+              </div>
+              <span className="font-mono text-[8px] uppercase tracking-wider">
                 {t(item.labelKey)}
               </span>
             </NavLink>
