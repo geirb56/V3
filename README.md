@@ -1,58 +1,40 @@
-# Project Documentation
+# CardioCoach V3 Documentation
 
 ## Overview
-This project aims to provide a comprehensive solution for ...
+CardioCoach V3 is an innovative fitness application designed to enhance your workout experience. It features real-time tracking of your cardio exercises, personalized training plans, and community features to keep you motivated.
 
 ## Architecture
-The architecture consists of multiple layers including ...
-
-## Project Structure
-The project is structured as follows:
-```
-/project-root
-│
-├── src/         # Source files
-├── docs/        # Documentation files
-├── tests/       # Test files
-└── README.md    # Project documentation
-```
-
-## Getting Started
-To get started with the project:
-1. Clone the repository: `git clone <repository-url>`
-2. Navigate to the project directory: `cd <project-directory>`
-3. Install dependencies: `npm install`
-4. Run the application: `npm start`
+The architecture of CardioCoach V3 is built on a microservices pattern, allowing scalability and modularization. Each component is responsible for distinct functionalities such as user management, workout tracking, and data analysis.
 
 ## Features
-- Feature 1: ...
-- Feature 2: ...
+- Real-time cardio tracking
+- Personalized workout plans
+- Community support and challenges
+- Detailed analytics and progress reports
 
 ## API Reference
-The API is structured as follows:
-- Endpoint 1: ...
-- Endpoint 2: ...
+CardioCoach V3 provides a RESTful API for developers:
+- **GET /api/workouts**: Retrieve workout data
+- **POST /api/users**: Create new user accounts
+- **GET /api/users/{id}**: Get user details
+
+## Setup Instructions
+1. Clone the repository: `git clone https://github.com/geirb56/CardioCoachV3.git`
+2. Navigate to the directory: `cd CardioCoachV3`
+3. Install dependencies: `npm install`
+4. Start the application: `npm start`
 
 ## Testing
-To run the tests:
-1. Ensure all dependencies are installed.
-2. Run the command: `npm test`
+Run tests using the following command: `npm test`.
 
 ## i18n
-The project supports internationalization (i18n) for:
-- Languages supported: English, Spanish, etc.
+CardioCoach V3 supports internationalization (i18n) to serve users in different languages. Language files can be found in the `locales` directory.
+
+## Design System
+Our design system is based on Material Design principles, ensuring a consistent look and feel across all platforms. UI components are documented in the `design-system` folder.
 
 ## Security
-Please ensure to follow best security practices while using the project.
-- Regularly update dependencies.
+Security is a top priority. CardioCoach V3 uses JWT for user authentication and follows best practices for data encryption and storage.
 
 ## Deployment
-Deploy the project using the following steps:
-1. Build the project: `npm run build`
-2. Deploy using your preferred cloud service or server.
-
-## Acknowledgments
-Special thanks to ... for their contributions to this project.
-
----
-#### Last Updated: 2026-02-26 21:29:13 UTC
+To deploy CardioCoach V3, follow the instructions in the `DEPLOYMENT.md` file located in the root directory.
