@@ -1895,7 +1895,11 @@ async def root():
 @api_router.get("/workouts", response_model=List[dict])
 async def get_workouts(user_id: str = "default"):
     """Get all workouts for a user, sorted by date descending"""
-    workouts = await db.workouts.find({"user_id": user_id}, {"_id": 0}).sort("date", -1).to_list(200)
+    # Search for workouts with user_id OR without user_id (Strava imports)
+    workouts = await db.workouts.find(
+        {"$or": [{"user_id": user_id}, {"user_id": None}, {"user_id": {"$exists": False}}]}, 
+        {"_id": 0}
+    ).sort("date", -1).to_list(200)
     if not workouts:
         workouts = get_mock_workouts()
     return workouts
