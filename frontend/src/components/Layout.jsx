@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Outlet, NavLink, useLocation } from "react-router-dom";
-import { Activity, MessageSquare, BarChart3, Home, Settings, Compass, CalendarDays, Crown, CreditCard, Target } from "lucide-react";
+import { Home, BarChart3, CalendarDays, MessageCircle, Zap, RefreshCw, User } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import { useAutoSync } from "@/hooks/useAutoSync";
 import ChatCoach from "@/components/ChatCoach";
@@ -10,147 +10,102 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export const Layout = () => {
   const location = useLocation();
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const [chatOpen, setChatOpen] = useState(false);
-  const [subscriptionTier, setSubscriptionTier] = useState("free");
-  const [tierName, setTierName] = useState("Gratuit");
+  const [lastSync, setLastSync] = useState(null);
   
   // Auto-sync Strava data on startup
   useAutoSync();
 
-  // Check subscription status
+  // Get last sync time
   useEffect(() => {
-    const checkSubscription = async () => {
+    const checkSync = async () => {
       try {
-        const res = await axios.get(`${API}/subscription/status?user_id=default`);
-        setSubscriptionTier(res.data.tier || "free");
-        setTierName(res.data.tier_name || "Gratuit");
+        const res = await axios.get(`${API}/strava/status?user_id=default`);
+        if (res.data.last_sync) {
+          const syncDate = new Date(res.data.last_sync);
+          const now = new Date();
+          const diffMins = Math.round((now - syncDate) / 60000);
+          if (diffMins < 60) {
+            setLastSync(`${diffMins} min`);
+          } else {
+            setLastSync(`${Math.round(diffMins / 60)}h`);
+          }
+        }
       } catch (err) {
-        console.error("Error checking subscription:", err);
+        // Ignore
       }
     };
-    checkSubscription();
+    checkSync();
   }, []);
 
-  const isPremium = subscriptionTier !== "free";
-
   const navItems = [
-    { path: "/", icon: Home, labelKey: "nav.dashboard" },
-    { path: "/training", icon: Target, labelKey: "nav.training" },
-    { path: "/digest", icon: CalendarDays, labelKey: "nav.digest" },
-    { path: "/progress", icon: BarChart3, labelKey: "nav.progress" },
-    { path: "/subscription", icon: CreditCard, labelKey: "nav.subscription" },
-    { path: "/settings", icon: Settings, labelKey: "nav.settings" },
+    { path: "/", icon: Home, labelKey: "Accueil" },
+    { path: "/progress", icon: BarChart3, labelKey: "Analyse" },
+    { path: "/training", icon: CalendarDays, labelKey: "Plan" },
+    { path: "/coach", icon: MessageCircle, labelKey: "Coach", hasNotification: true },
   ];
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row">
-      {/* Sidebar - Desktop */}
-      <aside className="hidden md:flex flex-col w-64 border-r border-border bg-background p-6">
-        <div className="mb-10">
-          <div className="flex items-center gap-3">
-            <Activity className="w-6 h-6 text-primary" />
-            <span className="font-heading text-xl uppercase tracking-tight font-bold">
-              CardioCoach
-            </span>
-          </div>
-        </div>
-
-        <nav className="flex-1 space-y-1">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              data-testid={`nav-${item.labelKey.split(".")[1]}`}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-3 text-sm font-mono uppercase tracking-wider transition-colors ${
-                  isActive
-                    ? "text-primary border-l-2 border-primary bg-muted/50"
-                    : "text-muted-foreground hover:text-foreground border-l-2 border-transparent"
-                }`
-              }
-            >
-              <item.icon className="w-4 h-4" />
-              {t(item.labelKey)}
-            </NavLink>
-          ))}
-        </nav>
-
-        {/* Chat Coach Button - Desktop */}
-        <button
-          onClick={() => setChatOpen(true)}
-          data-testid="chat-coach-btn-desktop"
-          className={`flex items-center gap-3 px-4 py-3 text-sm font-mono uppercase tracking-wider transition-all mt-2 rounded-lg ${
-            isPremium 
-              ? "bg-gradient-to-r from-amber-500/10 to-orange-500/10 text-amber-600 hover:from-amber-500/20 hover:to-orange-500/20"
-              : "bg-muted/50 text-muted-foreground hover:bg-muted"
-          }`}
-        >
-          <Crown className={`w-4 h-4 ${isPremium ? "text-amber-500" : ""}`} />
-          Chat Coach
-          {isPremium && (
-            <span className="ml-auto text-[8px] bg-amber-500 text-white px-1.5 py-0.5 rounded-full">PRO</span>
-          )}
-        </button>
-
-        <div className="pt-6 border-t border-border mt-4">
-          <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-            {t("nav.tagline")}
-          </p>
-        </div>
-      </aside>
-
+    <div className="min-h-screen flex flex-col" style={{ background: "var(--bg-primary)" }}>
+      
       {/* Mobile Header */}
-      <header className="md:hidden flex items-center justify-between p-4 border-b border-border bg-background/95 backdrop-blur-md">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-            <Activity className="w-5 h-5 text-primary" />
+      <header className="header-modern">
+        <div className="header-logo">
+          <div className="header-logo-icon">
+            <Zap className="w-5 h-5 text-white" />
           </div>
-          <span className="font-heading text-lg uppercase tracking-tight font-bold">
-            CardioCoach
-          </span>
+          <div>
+            <h1 className="header-logo-text">
+              Cardio<span>Coach</span>
+            </h1>
+            {lastSync && (
+              <div className="sync-status">
+                <span className="sync-dot" />
+                <span>Sync il y a {lastSync}</span>
+              </div>
+            )}
+          </div>
         </div>
-        {/* Chat button mobile header */}
-        <button
-          onClick={() => setChatOpen(true)}
-          data-testid="chat-coach-btn-mobile"
-          className={`btn-primary-glow flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-            isPremium 
-              ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white"
-              : "bg-primary text-white"
-          }`}
-        >
-          <Crown className="w-3.5 h-3.5" />
-          <span>Chat</span>
-        </button>
+        
+        <div className="header-actions">
+          <button 
+            className="p-2 rounded-lg transition-colors hover:bg-white/5"
+            style={{ color: "var(--text-tertiary)" }}
+          >
+            <RefreshCw className="w-5 h-5" />
+          </button>
+          <div className="header-avatar">
+            AR
+          </div>
+        </div>
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto pb-20 md:pb-0">
+      <main className="flex-1 overflow-auto pb-20">
         <Outlet />
       </main>
 
-      {/* Mobile Navigation */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 flex items-center justify-around p-2 border-t border-border bg-background/95 backdrop-blur-md safe-area-pb">
+      {/* Bottom Navigation */}
+      <nav className="bottom-nav-modern fixed bottom-0 left-0 right-0 flex items-center justify-around py-2 safe-area-pb">
         {navItems.map((item) => {
           const isActive = location.pathname === item.path;
           return (
             <NavLink
               key={item.path}
               to={item.path}
-              data-testid={`mobile-nav-${item.labelKey.split(".")[1]}`}
-              className={`nav-item flex flex-col items-center gap-1 p-2 rounded-lg transition-all ${
-                isActive 
-                  ? "text-primary active" 
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
+              className={`nav-item-modern ${isActive ? "active" : ""}`}
             >
-              <div className={`p-1.5 rounded-lg transition-colors ${isActive ? "bg-primary/10" : ""}`}>
-                <item.icon className="w-5 h-5" />
+              <div className="relative">
+                <item.icon className="nav-icon w-6 h-6" />
+                {item.hasNotification && (
+                  <span 
+                    className="absolute -top-1 -right-1 w-2 h-2 rounded-full"
+                    style={{ background: "var(--status-success)" }}
+                  />
+                )}
               </div>
-              <span className="font-mono text-[8px] uppercase tracking-wider">
-                {t(item.labelKey)}
-              </span>
+              <span className="nav-label">{item.labelKey}</span>
             </NavLink>
           );
         })}
