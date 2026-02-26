@@ -1,40 +1,47 @@
-# CardioCoach V3 Documentation
+# CardioCoach V3
 
 ## Overview
-CardioCoach V3 is an innovative fitness application designed to enhance your workout experience. It features real-time tracking of your cardio exercises, personalized training plans, and community features to keep you motivated.
+CardioCoach V3 is an advanced fitness tracking application designed to help users monitor and improve their cardiovascular health through tailored workout plans, tracking, and analytics.
 
 ## Architecture
-The architecture of CardioCoach V3 is built on a microservices pattern, allowing scalability and modularization. Each component is responsible for distinct functionalities such as user management, workout tracking, and data analysis.
+The application follows a modular architecture, incorporating both front-end and back-end components, allowing for scalability and maintainability.
+
+## Setup Instructions
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/geirb56/V3.git
+   ```
+2. Navigate to the project directory:
+   ```bash
+   cd V3
+   ```
+3. Install the necessary dependencies:
+   ```bash
+   npm install
+   ```
 
 ## Features
-- Real-time cardio tracking
-- Personalized workout plans
-- Community support and challenges
+- User authentication and authorization
+- Custom workout plans tailored to user goals
+- Real-time tracking of cardiovascular metrics
 - Detailed analytics and progress reports
 
 ## API Reference
-CardioCoach V3 provides a RESTful API for developers:
-- **GET /api/workouts**: Retrieve workout data
-- **POST /api/users**: Create new user accounts
-- **GET /api/users/{id}**: Get user details
-
-## Setup Instructions
-1. Clone the repository: `git clone https://github.com/geirb56/CardioCoachV3.git`
-2. Navigate to the directory: `cd CardioCoachV3`
-3. Install dependencies: `npm install`
-4. Start the application: `npm start`
+The application provides a RESTful API for integration with other services. Key endpoints include:
+- `POST /api/v1/auth/login`: User login
+- `GET /api/v1/workouts`: Get user workouts
+- `POST /api/v1/workouts`: Create a new workout plan
 
 ## Testing
-Run tests using the following command: `npm test`.
-
-## i18n
-CardioCoach V3 supports internationalization (i18n) to serve users in different languages. Language files can be found in the `locales` directory.
-
-## Design System
-Our design system is based on Material Design principles, ensuring a consistent look and feel across all platforms. UI components are documented in the `design-system` folder.
-
-## Security
-Security is a top priority. CardioCoach V3 uses JWT for user authentication and follows best practices for data encryption and storage.
+To run the test suite, install the necessary testing libraries and run:
+```bash
+npm test
+```
 
 ## Deployment
-To deploy CardioCoach V3, follow the instructions in the `DEPLOYMENT.md` file located in the root directory.
+For deploying the application in production, use:
+- Docker for containerization
+- AWS for hosting
+
+## Contributing Guidelines
+We welcome contributions! Please submit a pull request with a detailed description of your changes.
