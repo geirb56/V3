@@ -101,9 +101,11 @@ export const Layout = () => {
       </aside>
 
       {/* Mobile Header */}
-      <header className="md:hidden flex items-center justify-between p-4 border-b border-border bg-background">
+      <header className="md:hidden flex items-center justify-between p-4 border-b border-border bg-background/95 backdrop-blur-md">
         <div className="flex items-center gap-2">
-          <Activity className="w-5 h-5 text-primary" />
+          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+            <Activity className="w-5 h-5 text-primary" />
+          </div>
           <span className="font-heading text-lg uppercase tracking-tight font-bold">
             CardioCoach
           </span>
@@ -112,14 +114,14 @@ export const Layout = () => {
         <button
           onClick={() => setChatOpen(true)}
           data-testid="chat-coach-btn-mobile"
-          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium ${
+          className={`btn-primary-glow flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
             isPremium 
               ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white"
-              : "bg-muted text-muted-foreground"
+              : "bg-primary text-white"
           }`}
         >
           <Crown className="w-3.5 h-3.5" />
-          <span className="hidden xs:inline">Chat</span>
+          <span>Chat</span>
         </button>
       </header>
 
