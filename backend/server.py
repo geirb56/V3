@@ -1908,7 +1908,11 @@ async def get_workouts(user_id: str = "default"):
 @api_router.get("/workouts/{workout_id}")
 async def get_workout(workout_id: str, user_id: str = "default"):
     """Get a specific workout by ID"""
-    workout = await db.workouts.find_one({"id": workout_id, "user_id": user_id}, {"_id": 0})
+    # Search with or without user_id
+    workout = await db.workouts.find_one(
+        {"id": workout_id, "$or": [{"user_id": user_id}, {"user_id": None}, {"user_id": {"$exists": False}}]}, 
+        {"_id": 0}
+    )
     if not workout:
         # Check mock data
         mock = get_mock_workouts()
