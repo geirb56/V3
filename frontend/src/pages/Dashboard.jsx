@@ -182,8 +182,14 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="p-4 pb-24 flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+      <div className="p-4 pb-24 flex flex-col items-center justify-center min-h-[60vh] gap-3">
+        <div className="relative">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <div className="absolute inset-0 w-8 h-8 animate-ping opacity-20 bg-primary rounded-full"></div>
+        </div>
+        <p className="font-mono text-xs text-muted-foreground">
+          {lang === "fr" ? "Chargement..." : "Loading..."}
+        </p>
       </div>
     );
   }
