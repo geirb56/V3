@@ -10,7 +10,10 @@ import {
   Flame,
   Play,
   RefreshCw,
-  Loader2
+  Loader2,
+  Heart,
+  Timer,
+  Activity
 } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
