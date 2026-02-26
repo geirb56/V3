@@ -308,12 +308,25 @@ export default function Dashboard() {
         
         <div className="space-y-2">
           {workouts.slice(0, 5).map((workout, index) => {
-            const workoutType = workout.notes?.toLowerCase().includes("interval") ? "fractionne" 
-              : workout.notes?.toLowerCase().includes("recup") ? "recuperation"
-              : workout.avg_heart_rate > 160 ? "seuil"
-              : "endurance";
+            // Better workout type detection
+            const workoutName = workout.name?.toLowerCase() || "";
+            const notes = workout.notes?.toLowerCase() || "";
+            const avgHR = workout.avg_heart_rate || 0;
+            
+            let workoutType = "endurance"; // default
+            
+            if (workoutName.includes("interval") || notes.includes("interval") || workoutName.includes("fractionn")) {
+              workoutType = "fractionne";
+            } else if (workoutName.includes("recup") || notes.includes("recup") || workoutName.includes("easy") || workoutName.includes("recovery")) {
+              workoutType = "recuperation";
+            } else if (avgHR > 165 || workoutName.includes("tempo") || workoutName.includes("seuil") || workoutName.includes("threshold")) {
+              workoutType = "seuil";
+            } else if (workout.type === "cycle") {
+              workoutType = "cycle";
+            }
             
             const typeConfig = WORKOUT_TYPES[workoutType] || WORKOUT_TYPES.endurance;
+            const TypeIcon = typeConfig.icon;
             
             return (
               <Link
@@ -322,8 +335,14 @@ export default function Dashboard() {
                 className="workout-list-item animate-in"
                 style={{ animationDelay: `${250 + index * 50}ms` }}
               >
-                <div className={typeConfig.bgClass}>
-                  <Zap className="w-5 h-5" />
+                <div 
+                  className="workout-icon"
+                  style={{ 
+                    background: `${typeConfig.color}20`,
+                    color: typeConfig.color
+                  }}
+                >
+                  <TypeIcon className="w-5 h-5" />
                 </div>
                 
                 <div className="workout-info">
