@@ -217,11 +217,13 @@ export default function Dashboard() {
 
       {/* RAG ENRICHED SUMMARY - NEW */}
       {rag?.rag_summary && (
-        <Card className="bg-card border-border mb-4" data-testid="rag-summary-card">
+        <Card className="rag-summary-card bg-card border-border mb-4 animate-in" style={{ animationDelay: "50ms" }} data-testid="rag-summary-card">
           <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Sparkles className="w-4 h-4 text-amber-400" />
-              <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-6 h-6 rounded-md bg-purple-500/10 flex items-center justify-center">
+                <Sparkles className="w-3 h-3 text-purple-400" />
+              </div>
+              <p className="font-mono text-[9px] uppercase tracking-widest text-purple-400/80">
                 {lang === "fr" ? "Analyse personnalisée" : "Personalized Analysis"}
               </p>
             </div>
@@ -231,17 +233,17 @@ export default function Dashboard() {
             
             {/* Points forts & améliorer */}
             {(rag.points_forts?.length > 0 || rag.points_ameliorer?.length > 0) && (
-              <div className="mt-3 pt-3 border-t border-border flex flex-wrap gap-2">
+              <div className="mt-3 pt-3 border-t border-border/50 flex flex-wrap gap-2">
                 {rag.points_forts?.slice(0, 2).map((point, i) => (
-                  <span key={`fort-${i}`} className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-500/10 text-emerald-400 rounded-sm">
+                  <span key={`fort-${i}`} className="rag-badge-fort inline-flex items-center gap-1">
                     <Target className="w-3 h-3" />
-                    <span className="font-mono text-[10px]">{point}</span>
+                    <span>{point}</span>
                   </span>
                 ))}
                 {rag.points_ameliorer?.slice(0, 1).map((point, i) => (
-                  <span key={`ameliorer-${i}`} className="inline-flex items-center gap-1 px-2 py-1 bg-amber-500/10 text-amber-400 rounded-sm">
+                  <span key={`ameliorer-${i}`} className="rag-badge-ameliorer inline-flex items-center gap-1">
                     <AlertTriangle className="w-3 h-3" />
-                    <span className="font-mono text-[10px]">{point}</span>
+                    <span>{point}</span>
                   </span>
                 ))}
               </div>
