@@ -43,7 +43,8 @@ export const Layout = () => {
     { path: "/", icon: Home, labelKey: "Accueil" },
     { path: "/progress", icon: BarChart3, labelKey: "Analyse" },
     { path: "/training", icon: CalendarDays, labelKey: "Plan" },
-    { path: "/coach", icon: MessageCircle, labelKey: "Coach", hasNotification: true },
+    { path: "/subscription", icon: CreditCard, labelKey: "Abo" },
+    { path: "/settings", icon: Settings, labelKey: "Réglages" },
   ];
 
   return (
