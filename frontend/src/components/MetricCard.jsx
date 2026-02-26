@@ -26,4 +26,4 @@ export const MetricCard = ({
       {label && <p className="font-mono text-xs text-muted-foreground mt-2 text-center">{label}</p>}
     </CardContent>
   </Card>
-);v
+);
