@@ -1,1 +1,80 @@
+/* Modern & Warm Theme for CardioCoach */
 
+:root {
+  /* Base Colors */
+  --bg-primary: hsl(220, 25%, 12%);
+  --bg-secondary: hsl(220, 20%, 18%);
+  --bg-card: hsl(220, 18%, 22%);
+  
+  /* Primary Accent - Violet/Magenta */
+  --accent-primary: hsl(280, 85%, 50%);
+  --accent-primary-light: hsl(280, 85%, 60%);
+  --accent-primary-dark: hsl(280, 85%, 40%);
+  
+  /* Secondary - Blue */
+  --accent-secondary: hsl(200, 100%, 60%);
+  --accent-secondary-light: hsl(200, 100%, 70%);
+  
+  /* Status Colors */
+  --status-success: hsl(140, 70%, 50%);
+  --status-warning: hsl(30, 100%, 55%);
+  --status-danger: hsl(0, 85%, 55%);
+  
+  /* Text */
+  --text-primary: hsl(0, 0%, 100%);
+  --text-secondary: hsl(220, 15%, 70%);
+  --text-tertiary: hsl(220, 15%, 50%);
+  
+  /* Borders & Dividers */
+  --border-color: hsl(220, 20%, 30%);
+  --border-color-light: hsl(220, 20%, 25%);
+  
+  /* Gradients */
+  --gradient-primary: linear-gradient(135deg, hsl(280, 85%, 50%), hsl(320, 80%, 50%));
+  --gradient-blue: linear-gradient(135deg, hsl(200, 100%, 50%), hsl(220, 100%, 60%));
+  --gradient-warm: linear-gradient(135deg, hsl(30, 100%, 55%), hsl(0, 85%, 55%));
+}
+
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  backdrop-filter: blur(8px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card:hover {
+  border-color: var(--accent-primary);
+  box-shadow: 0 8px 24px rgba(185, 70, 239, 0.15);
+}
+
+.recovery-gauge circle {
+  stroke: var(--accent-primary);
+  filter: drop-shadow(0 0 8px rgba(185, 70, 239, 0.3));
+}
+
+.chart-bar {
+  background: var(--gradient-primary);
+  border-radius: 4px;
+}
+
+.icon-fractionne { color: var(--accent-primary); }
+.icon-endurance { color: var(--accent-secondary); }
+.icon-seuil { color: var(--status-warning); }
+.icon-recuperation { color: var(--status-success); }
+
+.metric-line {
+  stroke: url(#gradient-primary);
+  filter: drop-shadow(0 0 2px rgba(185, 70, 239, 0.2));
+}
+
+.btn-cta {
+  background: var(--gradient-primary);
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+
+.btn-cta:hover {
+  transform: scale(1.1);
+  box-shadow: 0 12px 32px rgba(185, 70, 239, 0.4);
+}
