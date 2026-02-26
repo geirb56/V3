@@ -1,120 +1,156 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
-import { Card, CardContent } from "@/components/ui/card";
 import { useLanguage } from "@/context/LanguageContext";
 import { 
-  Activity, 
   TrendingUp,
-  TrendingDown,
-  Minus,
   ChevronRight,
   Bike,
-  Footprints,
-  Loader2,
-  Lightbulb,
-  Scale,
-  Battery,
-  BatteryLow,
-  BatteryMedium,
-  BatteryFull,
-  Sparkles,
-  Target,
-  AlertTriangle
+  Zap,
+  Flame,
+  Play,
+  RefreshCw,
+  Loader2
 } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-const getWorkoutIcon = (type) => {
-  if (type === "cycle") return Bike;
-  return Footprints;
+// Workout type configuration
+const WORKOUT_TYPES = {
+  fractionne: { 
+    label: "Fractionné", 
+    color: "var(--type-fractionne)",
+    bgClass: "workout-icon fractionne"
+  },
+  endurance: { 
+    label: "Endurance", 
+    color: "var(--type-endurance)",
+    bgClass: "workout-icon endurance"
+  },
+  seuil: { 
+    label: "Seuil", 
+    color: "var(--type-seuil)",
+    bgClass: "workout-icon seuil"
+  },
+  recuperation: { 
+    label: "Récupération", 
+    color: "var(--type-recuperation)",
+    bgClass: "workout-icon recuperation"
+  },
+  run: { 
+    label: "Course", 
+    color: "var(--type-endurance)",
+    bgClass: "workout-icon endurance"
+  },
+  cycle: { 
+    label: "Vélo", 
+    color: "var(--type-seuil)",
+    bgClass: "workout-icon seuil"
+  }
 };
 
 const formatDuration = (minutes) => {
   if (!minutes) return "--";
   const hrs = Math.floor(minutes / 60);
   const mins = minutes % 60;
-  if (hrs > 0) return `${hrs}h${mins > 0 ? mins : ""}`;
-  return `${mins}m`;
+  if (hrs > 0) return `${hrs}h${mins.toString().padStart(2, '0')}`;
+  return `${mins}min`;
 };
 
-// Recovery Score Gauge Component
-function RecoveryGauge({ score, status, phrase }) {
-  const getColor = () => {
-    if (status === "ready") return "text-emerald-400";
-    if (status === "moderate") return "text-amber-400";
-    return "text-red-400";
-  };
+const formatPace = (paceMinKm) => {
+  if (!paceMinKm) return "--";
+  const mins = Math.floor(paceMinKm);
+  const secs = Math.round((paceMinKm - mins) * 60);
+  return `${mins}:${secs.toString().padStart(2, '0')}/km`;
+};
 
-  const getBgColor = () => {
-    if (status === "ready") return "bg-emerald-400/10";
-    if (status === "moderate") return "bg-amber-400/10";
-    return "bg-red-400/10";
-  };
+const getRelativeDate = (dateStr, lang) => {
+  const date = new Date(dateStr);
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  
+  if (date.toDateString() === today.toDateString()) {
+    return lang === "fr" ? "Aujourd'hui" : "Today";
+  }
+  if (date.toDateString() === yesterday.toDateString()) {
+    return lang === "fr" ? "Hier" : "Yesterday";
+  }
+  return date.toLocaleDateString(lang === "fr" ? "fr-FR" : "en-US", { 
+    day: "numeric", 
+    month: "short" 
+  });
+};
 
-  const getIcon = () => {
-    if (status === "ready") return BatteryFull;
-    if (status === "moderate") return BatteryMedium;
-    return BatteryLow;
-  };
-
-  const Icon = getIcon();
-  const circumference = 2 * Math.PI * 36;
-  const progress = (score / 100) * circumference;
+// Circular Gauge Component
+function CircularGauge({ value, max = 100, size = 64 }) {
+  const strokeWidth = 5;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const progress = (value / max) * circumference;
 
   return (
-    <Card className={`border-border ${getBgColor()}`}>
-      <CardContent className="p-4">
-        <div className="flex items-center gap-4">
-          {/* Circular Gauge */}
-          <div className="relative w-20 h-20 flex-shrink-0">
-            <svg className="w-20 h-20 transform -rotate-90" viewBox="0 0 80 80">
-              {/* Background circle */}
-              <circle
-                cx="40"
-                cy="40"
-                r="36"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="6"
-                className="text-muted/30"
-              />
-              {/* Progress circle */}
-              <circle
-                cx="40"
-                cy="40"
-                r="36"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="6"
-                strokeLinecap="round"
-                strokeDasharray={circumference}
-                strokeDashoffset={circumference - progress}
-                className={getColor()}
-              />
-            </svg>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className={`font-mono text-xl font-bold ${getColor()}`}>
-                {score}
-              </span>
-            </div>
-          </div>
+    <div className="circular-gauge" style={{ width: size, height: size }}>
+      <svg width={size} height={size}>
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          strokeWidth={strokeWidth}
+          className="gauge-bg"
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          strokeWidth={strokeWidth}
+          strokeDasharray={circumference}
+          strokeDashoffset={circumference - progress}
+          className="gauge-progress"
+        />
+      </svg>
+      <div className="gauge-text">{value}%</div>
+    </div>
+  );
+}
 
-          {/* Text */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <Icon className={`w-4 h-4 ${getColor()}`} />
-              <span className={`font-mono text-xs uppercase tracking-wider font-semibold ${getColor()}`}>
-                {status === "ready" ? "Ready" : status === "moderate" ? "Moderate" : "Low"}
-              </span>
-            </div>
-            <p className="font-mono text-xs text-muted-foreground leading-relaxed">
-              {phrase}
-            </p>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+// Mini Line Chart Component
+function MiniLineChart({ data = [] }) {
+  if (!data.length) return null;
+  
+  const width = 280;
+  const height = 60;
+  const padding = 10;
+  
+  const maxVal = Math.max(...data);
+  const minVal = Math.min(...data);
+  const range = maxVal - minVal || 1;
+  
+  const points = data.map((val, i) => {
+    const x = padding + (i / (data.length - 1)) * (width - 2 * padding);
+    const y = height - padding - ((val - minVal) / range) * (height - 2 * padding);
+    return `${x},${y}`;
+  }).join(" ");
+
+  return (
+    <svg width={width} height={height} className="mt-2">
+      <defs>
+        <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="var(--accent-violet)" stopOpacity="0.3" />
+          <stop offset="100%" stopColor="var(--accent-violet)" />
+        </linearGradient>
+      </defs>
+      <polyline
+        points={points}
+        fill="none"
+        stroke="url(#lineGradient)"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 
@@ -127,12 +163,9 @@ export default function Dashboard() {
   const lastLangRef = useRef(lang);
 
   useEffect(() => {
-    // Prevent double fetch on mount (React StrictMode)
-    // Only refetch if language changed
     if (fetchedRef.current && lastLangRef.current === lang) {
       return;
     }
-    
     fetchedRef.current = true;
     lastLangRef.current = lang;
     fetchData();
@@ -148,12 +181,8 @@ export default function Dashboard() {
       ]);
       setInsight(insightRes.data);
       setWorkouts(workoutsRes.data);
-      // Merge RAG data into insight for enhanced display
       if (ragRes.data) {
-        setInsight(prev => ({
-          ...prev,
-          rag: ragRes.data
-        }));
+        setInsight(prev => ({ ...prev, rag: ragRes.data }));
       }
     } catch (error) {
       console.error("Failed to fetch data:", error);
@@ -162,250 +191,152 @@ export default function Dashboard() {
     }
   };
 
-  const getLoadColor = (signal) => {
-    if (signal === "high") return "text-chart-1";
-    if (signal === "low") return "text-chart-4";
-    return "text-chart-2";
-  };
-
-  const getTrendIcon = (trend) => {
-    if (trend === "up") return TrendingUp;
-    if (trend === "down") return TrendingDown;
-    return Minus;
-  };
-
-  const getTrendColor = (trend) => {
-    if (trend === "up") return "text-chart-2";
-    if (trend === "down") return "text-chart-4";
-    return "text-muted-foreground";
-  };
-
   if (loading) {
     return (
-      <div className="p-4 pb-24 flex flex-col items-center justify-center min-h-[60vh] gap-3">
-        <div className="relative">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          <div className="absolute inset-0 w-8 h-8 animate-ping opacity-20 bg-primary rounded-full"></div>
-        </div>
-        <p className="font-mono text-xs text-muted-foreground">
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
+        <Loader2 className="w-8 h-8 animate-spin" style={{ color: "var(--accent-violet)" }} />
+        <p className="text-sm" style={{ color: "var(--text-tertiary)" }}>
           {lang === "fr" ? "Chargement..." : "Loading..."}
         </p>
       </div>
     );
   }
 
-  const TrendIcon = insight?.month ? getTrendIcon(insight.month.trend) : Minus;
   const recovery = insight?.recovery_score;
-  const rag = insight?.rag;
+  const weekStats = insight?.week || { sessions: 0, volume_km: 0 };
+  const monthStats = insight?.month || { volume_km: 0 };
+  
+  // Mock data for the chart (would come from real data)
+  const chartData = [45, 48, 42, 50, 55, 58, 62, 68];
+  
+  // Calculate weekly progress
+  const weeklyKmTarget = 80;
+  const weeklyProgress = Math.min(100, Math.round((weekStats.volume_km / weeklyKmTarget) * 100));
+  
+  // Calories (mock - would come from real data)
+  const calories = Math.round(weekStats.volume_km * 65);
+  const caloriesTarget = 5000;
 
   return (
-    <div className="p-4 pb-24" data-testid="dashboard">
-      {/* 1) COACH INSIGHT - TOP PRIORITY */}
-      {insight?.coach_insight && (
-        <Card className="coach-insight-card bg-primary/5 border-primary/20 mb-4 animate-in">
-          <CardContent className="p-4">
-            <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <Lightbulb className="w-4 h-4 text-primary" />
-              </div>
-              <div className="flex-1">
-                <p className="font-mono text-[9px] uppercase tracking-widest text-primary/60 mb-1">
-                  {lang === "fr" ? "Conseil du coach" : "Coach Insight"}
-                </p>
-                <p className="font-mono text-sm text-primary leading-relaxed" data-testid="coach-insight">
-                  {insight.coach_insight}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* RAG ENRICHED SUMMARY - NEW */}
-      {rag?.rag_summary && (
-        <Card className="rag-summary-card bg-card border-border mb-4 animate-in" style={{ animationDelay: "50ms" }} data-testid="rag-summary-card">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-6 h-6 rounded-md bg-purple-500/10 flex items-center justify-center">
-                <Sparkles className="w-3 h-3 text-purple-400" />
-              </div>
-              <p className="font-mono text-[9px] uppercase tracking-widest text-purple-400/80">
-                {lang === "fr" ? "Analyse personnalisée" : "Personalized Analysis"}
-              </p>
-            </div>
-            <p className="font-mono text-xs text-muted-foreground leading-relaxed whitespace-pre-line" data-testid="rag-summary">
-              {rag.rag_summary.split('\n').slice(0, 4).join('\n')}
+    <div className="p-4 pb-24 space-y-4" style={{ background: "var(--bg-primary)" }}>
+      
+      {/* FORME ACTUELLE - Form Score Card */}
+      <div className="form-score-card p-4 animate-in">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-wider mb-2" style={{ color: "var(--text-tertiary)" }}>
+              {lang === "fr" ? "Forme actuelle" : "Current Form"}
             </p>
-            
-            {/* Points forts & améliorer */}
-            {(rag.points_forts?.length > 0 || rag.points_ameliorer?.length > 0) && (
-              <div className="mt-3 pt-3 border-t border-border/50 flex flex-wrap gap-2">
-                {rag.points_forts?.slice(0, 2).map((point, i) => (
-                  <span key={`fort-${i}`} className="rag-badge-fort inline-flex items-center gap-1">
-                    <Target className="w-3 h-3" />
-                    <span>{point}</span>
-                  </span>
-                ))}
-                {rag.points_ameliorer?.slice(0, 1).map((point, i) => (
-                  <span key={`ameliorer-${i}`} className="rag-badge-ameliorer inline-flex items-center gap-1">
-                    <AlertTriangle className="w-3 h-3" />
-                    <span>{point}</span>
-                  </span>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* 2) RECOVERY SCORE - NEW */}
-      {recovery && (
-        <div className="mb-4">
-          <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mb-2">
-            {t("dashboard.recovery")}
-          </p>
-          <RecoveryGauge 
-            score={recovery.score} 
-            status={recovery.status} 
-            phrase={recovery.phrase}
-          />
-        </div>
-      )}
-
-      {/* 3) CURRENT WEEK - VOLUME FOCUS */}
-      <div className="mb-4">
-        <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mb-2">
-          {t("dashboard.thisWeek")}
-        </p>
-        <div className="grid grid-cols-3 gap-2">
-          {/* Sessions */}
-          <Card className="metric-card bg-card border-border animate-in" style={{ animationDelay: "100ms" }}>
-            <CardContent className="p-3 text-center">
-              <Activity className="w-4 h-4 text-primary/60 mx-auto mb-1" />
-              <p className="font-heading text-2xl font-bold">{insight?.week?.sessions || 0}</p>
-              <p className="font-mono text-[9px] uppercase text-muted-foreground">
-                {t("dashboard.sessions")}
-              </p>
-            </CardContent>
-          </Card>
-
-          {/* Volume */}
-          <Card className="metric-card bg-card border-border animate-in" style={{ animationDelay: "150ms" }}>
-            <CardContent className="p-3 text-center">
-              <Scale className="w-4 h-4 text-emerald-400/60 mx-auto mb-1" />
-              <p className="font-heading text-2xl font-bold">{insight?.week?.volume_km || 0}</p>
-              <p className="font-mono text-[9px] uppercase text-muted-foreground">
-                {t("dashboard.km")}
-              </p>
-            </CardContent>
-          </Card>
-
-          {/* Load Signal */}
-          <Card className="metric-card bg-card border-border animate-in" style={{ animationDelay: "200ms" }}>
-            <CardContent className="p-3 text-center">
-              <div className="flex items-center justify-center gap-2 mb-1">
-                <span className={`signal-dot ${insight?.week?.load_signal || 'balanced'}`}></span>
-              </div>
-              <p className={`font-mono text-xs font-bold ${getLoadColor(insight?.week?.load_signal)}`}>
-                {t(`dashboard.load.${insight?.week?.load_signal || "balanced"}`)}
-              </p>
-              <p className="font-mono text-[9px] uppercase text-muted-foreground">
-                {t("dashboard.load.label")}
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* 4) LAST MONTH - CONTEXT ONLY */}
-      <div className="mb-4">
-        <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mb-2">
-          {t("dashboard.lastMonth")}
-        </p>
-        <Card className="bg-card border-border">
-          <CardContent className="p-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div>
-                  <p className="font-mono text-lg font-bold">{insight?.month?.volume_km || 0}</p>
-                  <p className="font-mono text-[9px] uppercase text-muted-foreground">{t("dashboard.km")}</p>
-                </div>
-                <div className="h-8 w-px bg-border" />
-                <div>
-                  <p className="font-mono text-lg font-bold">{insight?.month?.active_weeks || 0}</p>
-                  <p className="font-mono text-[9px] uppercase text-muted-foreground">{t("dashboard.activeWeeks")}</p>
-                </div>
-              </div>
-              <div className={`flex items-center gap-1 ${getTrendColor(insight?.month?.trend)}`}>
-                <TrendIcon className="w-4 h-4" />
-                <span className="font-mono text-xs uppercase">
-                  {t(`dashboard.trend.${insight?.month?.trend || "stable"}`)}
-                </span>
-              </div>
+            <div className="flex items-baseline">
+              <span className="form-score-value">{recovery?.score || 75}</span>
+              <span className="form-score-unit">pts</span>
             </div>
-          </CardContent>
-        </Card>
+            <p className="form-score-change mt-1">
+              ↑ +3 {lang === "fr" ? "cette semaine" : "this week"}
+            </p>
+          </div>
+          <CircularGauge value={recovery?.score || 75} />
+        </div>
+        <MiniLineChart data={chartData} />
       </div>
 
-      {/* RECENT WORKOUTS */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-            {t("dashboard.recentWorkouts")}
-          </p>
-          <Link 
-            to="/progress" 
-            data-testid="view-all-workouts"
-            className="font-mono text-[10px] uppercase text-primary hover:text-primary/80 flex items-center gap-1 transition-colors"
-          >
-            {t("dashboard.viewAll")} <ChevronRight className="w-3 h-3" />
-          </Link>
+      {/* METRICS ROW - Cette semaine & Calories */}
+      <div className="grid grid-cols-2 gap-3">
+        {/* Cette semaine */}
+        <div className="metric-card-modern animate-in" style={{ animationDelay: "50ms" }}>
+          <div className="metric-label">
+            <Zap className="w-4 h-4" style={{ color: "var(--accent-violet)" }} />
+            <span>{lang === "fr" ? "Cette semaine" : "This week"}</span>
+          </div>
+          <div className="flex items-baseline">
+            <span className="metric-value">{weekStats.volume_km || 0}</span>
+            <span className="metric-unit">km</span>
+          </div>
+          <div className="metric-progress-bar">
+            <div 
+              className="metric-progress-fill" 
+              style={{ width: `${weeklyProgress}%` }}
+            />
+          </div>
         </div>
 
+        {/* Calories */}
+        <div className="metric-card-modern animate-in" style={{ animationDelay: "100ms" }}>
+          <div className="metric-label">
+            <Flame className="w-4 h-4" style={{ color: "var(--accent-pink)" }} />
+            <span>Calories</span>
+          </div>
+          <div className="flex items-baseline">
+            <span className="metric-value">{calories.toLocaleString()}</span>
+          </div>
+          <p className="metric-objective">
+            Objectif: {caloriesTarget.toLocaleString()}
+          </p>
+        </div>
+      </div>
+
+      {/* TODAY'S WORKOUT */}
+      {workouts.length > 0 && (
+        <div className="today-workout-card animate-in" style={{ animationDelay: "150ms" }}>
+          <p className="today-label">{lang === "fr" ? "AUJOURD'HUI" : "TODAY"}</p>
+          <h3 className="today-title">Fractionné Progressif</h3>
+          <p className="today-meta">45 min • Cible: 4:30/km</p>
+          <div className="today-details">
+            <span>Échauffement 10min</span>
+            <span>5× 3min</span>
+          </div>
+          <div className="play-button">
+            <Play className="w-5 h-5" fill="white" />
+          </div>
+        </div>
+      )}
+
+      {/* DERNIÈRES SORTIES */}
+      <div className="animate-in" style={{ animationDelay: "200ms" }}>
+        <h2 className="section-header">
+          {lang === "fr" ? "DERNIÈRES SORTIES" : "RECENT WORKOUTS"}
+        </h2>
+        
         <div className="space-y-2">
-          {workouts.slice(0, 4).map((workout, index) => {
-            const Icon = getWorkoutIcon(workout.type);
-            const dateStr = new Date(workout.date).toLocaleDateString(
-              lang === "fr" ? "fr-FR" : "en-US",
-              { month: "short", day: "numeric" }
-            );
-            const typeLabel = t(`workoutTypes.${workout.type}`) || workout.type;
+          {workouts.slice(0, 5).map((workout, index) => {
+            const workoutType = workout.notes?.toLowerCase().includes("interval") ? "fractionne" 
+              : workout.notes?.toLowerCase().includes("recup") ? "recuperation"
+              : workout.avg_heart_rate > 160 ? "seuil"
+              : "endurance";
+            
+            const typeConfig = WORKOUT_TYPES[workoutType] || WORKOUT_TYPES.endurance;
             
             return (
               <Link
                 key={workout.id}
                 to={`/workout/${workout.id}`}
-                data-testid={`workout-card-${workout.id}`}
-                className="block animate-in"
+                className="workout-list-item animate-in"
                 style={{ animationDelay: `${250 + index * 50}ms` }}
               >
-                <Card className="metric-card bg-card border-border hover:border-primary/30">
-                  <CardContent className="p-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 flex items-center justify-center bg-muted/50 border border-border rounded-md flex-shrink-0">
-                        <Icon className="w-4 h-4 text-muted-foreground" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-0.5">
-                          <span className={`workout-type-badge ${workout.type}`}>
-                            {typeLabel}
-                          </span>
-                          <span className="font-mono text-[9px] text-muted-foreground">
-                            {dateStr}
-                          </span>
-                        </div>
-                        <p className="font-mono text-xs font-medium truncate">{workout.name}</p>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <p className="font-mono text-sm font-semibold">{workout.distance_km?.toFixed(1)} km</p>
-                        <p className="font-mono text-[10px] text-muted-foreground">
-                          {formatDuration(workout.duration_minutes)}
-                        </p>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                    </div>
-                  </CardContent>
-                </Card>
+                <div className={typeConfig.bgClass}>
+                  <Zap className="w-5 h-5" />
+                </div>
+                
+                <div className="workout-info">
+                  <p className="workout-type-name">{typeConfig.label}</p>
+                  <div className="workout-stats">
+                    <span>{workout.distance_km?.toFixed(1)} km</span>
+                    <span className="dot" />
+                    <span>{formatPace(workout.avg_pace_min_km)}</span>
+                    {workout.avg_heart_rate && (
+                      <>
+                        <span className="dot" />
+                        <span>FC {workout.avg_heart_rate}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                
+                <span className="workout-date">
+                  {getRelativeDate(workout.date, lang)}
+                </span>
+                
+                <ChevronRight className="workout-arrow w-4 h-4" />
               </Link>
             );
           })}
