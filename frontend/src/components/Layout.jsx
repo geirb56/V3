@@ -88,17 +88,17 @@ export const Layout = () => {
       </main>
 
       {/* Bottom Navigation */}
-      <nav className="bottom-nav-modern fixed bottom-0 left-0 right-0 flex items-center justify-around py-2 safe-area-pb">
+      <nav className="bottom-nav-modern fixed bottom-0 left-0 right-0 flex items-center justify-between px-2 py-2 safe-area-pb">
         {navItems.map((item) => {
           const isActive = location.pathname === item.path;
           return (
             <NavLink
               key={item.path}
               to={item.path}
-              className={`nav-item-modern ${isActive ? "active" : ""}`}
+              className={`nav-item-modern flex-1 ${isActive ? "active" : ""}`}
             >
               <div className="relative">
-                <item.icon className="nav-icon w-6 h-6" />
+                <item.icon className="nav-icon w-5 h-5" />
                 {item.hasNotification && (
                   <span 
                     className="absolute -top-1 -right-1 w-2 h-2 rounded-full"
@@ -106,7 +106,7 @@ export const Layout = () => {
                   />
                 )}
               </div>
-              <span className="nav-label">{item.labelKey}</span>
+              <span className="nav-label text-[9px]">{item.labelKey}</span>
             </NavLink>
           );
         })}
