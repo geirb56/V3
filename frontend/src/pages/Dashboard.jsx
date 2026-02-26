@@ -22,33 +22,39 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const WORKOUT_TYPES = {
   fractionne: { 
     label: "Fractionné", 
-    color: "var(--type-fractionne)",
-    bgClass: "workout-icon fractionne"
+    color: "#8b5cf6",
+    bgClass: "workout-icon fractionne",
+    icon: Zap
   },
   endurance: { 
     label: "Endurance", 
-    color: "var(--type-endurance)",
-    bgClass: "workout-icon endurance"
+    color: "#3b82f6",
+    bgClass: "workout-icon endurance",
+    icon: Activity
   },
   seuil: { 
     label: "Seuil", 
-    color: "var(--type-seuil)",
-    bgClass: "workout-icon seuil"
+    color: "#f97316",
+    bgClass: "workout-icon seuil",
+    icon: Flame
   },
   recuperation: { 
     label: "Récupération", 
-    color: "var(--type-recuperation)",
-    bgClass: "workout-icon recuperation"
+    color: "#14b8a6",
+    bgClass: "workout-icon recuperation",
+    icon: Heart
   },
   run: { 
     label: "Course", 
-    color: "var(--type-endurance)",
-    bgClass: "workout-icon endurance"
+    color: "#3b82f6",
+    bgClass: "workout-icon endurance",
+    icon: Activity
   },
   cycle: { 
     label: "Vélo", 
-    color: "var(--type-seuil)",
-    bgClass: "workout-icon seuil"
+    color: "#f97316",
+    bgClass: "workout-icon seuil",
+    icon: Bike
   }
 };
 
