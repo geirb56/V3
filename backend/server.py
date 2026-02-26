@@ -15,7 +15,7 @@ import httpx
 import time
 from collections import defaultdict
 from pathlib import Path
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 from typing import List, Optional, Dict
 import uuid
 from datetime import datetime, timezone, timedelta
@@ -160,48 +160,65 @@ logger = logging.getLogger(__name__)
 
 class RateLimiter:
     """Simple in-memory rate limiter"""
-    
+
     def __init__(self, requests_per_minute: int = 60, burst_limit: int = 10):
         self.requests_per_minute = requests_per_minute
         self.burst_limit = burst_limit
         self.requests: Dict[str, List[float]] = defaultdict(list)
-    
+        self._last_global_cleanup: float = time.time()
+
     def _cleanup(self, user_id: str) -> None:
-        """Remove old requests outside the window"""
+        """Remove old requests outside the window for this user"""
         now = time.time()
         cutoff = now - 60  # 1 minute window
         self.requests[user_id] = [t for t in self.requests[user_id] if t > cutoff]
-    
+        # Remove the key entirely when empty to prevent unbounded growth
+        if not self.requests[user_id]:
+            del self.requests[user_id]
+
+    def _global_cleanup(self) -> None:
+        """Periodically purge stale user entries (every 5 minutes)"""
+        now = time.time()
+        if now - self._last_global_cleanup < 300:
+            return
+        self._last_global_cleanup = now
+        cutoff = now - 60
+        stale = [uid for uid, ts in self.requests.items() if not any(t > cutoff for t in ts)]
+        for uid in stale:
+            del self.requests[uid]
+
     def is_limited(self, user_id: str) -> bool:
         """Check if user is rate limited"""
+        self._global_cleanup()
         self._cleanup(user_id)
-        
+
         now = time.time()
-        recent = self.requests[user_id]
-        
+        recent = self.requests.get(user_id, [])
+
         # Check burst (10 requests in last 2 seconds)
         burst_cutoff = now - 2
         burst_count = sum(1 for t in recent if t > burst_cutoff)
         if burst_count >= self.burst_limit:
             return True
-        
+
         # Check rate (60 requests per minute)
         if len(recent) >= self.requests_per_minute:
             return True
-        
+
         return False
-    
+
     def record(self, user_id: str) -> None:
         """Record a request"""
         self.requests[user_id].append(time.time())
-    
+
     def get_stats(self, user_id: str) -> dict:
         """Get rate limit stats for user"""
         self._cleanup(user_id)
+        recent = self.requests.get(user_id, [])
         return {
-            "requests_last_minute": len(self.requests[user_id]),
+            "requests_last_minute": len(recent),
             "limit": self.requests_per_minute,
-            "remaining": max(0, self.requests_per_minute - len(self.requests[user_id]))
+            "remaining": max(0, self.requests_per_minute - len(recent))
         }
 
 
@@ -343,6 +360,47 @@ class WorkoutCreate(BaseModel):
     data_source: Optional[str] = "manual"
     garmin_activity_id: Optional[str] = None
 
+    @field_validator("type")
+    @classmethod
+    def validate_type(cls, v: str) -> str:
+        allowed = {"run", "cycle", "swim"}
+        if v not in allowed:
+            raise ValueError(f"type must be one of {allowed}")
+        return v
+
+    @field_validator("duration_minutes")
+    @classmethod
+    def validate_duration(cls, v: int) -> int:
+        if v < 0:
+            raise ValueError("duration_minutes must be non-negative")
+        return v
+
+    @field_validator("distance_km")
+    @classmethod
+    def validate_distance(cls, v: float) -> float:
+        if v < 0:
+            raise ValueError("distance_km must be non-negative")
+        return v
+
+    @field_validator("date")
+    @classmethod
+    def validate_date(cls, v: str) -> str:
+        try:
+            datetime.fromisoformat(v.split("T")[0])
+        except (ValueError, AttributeError):
+            raise ValueError("date must be a valid ISO date string (YYYY-MM-DD)")
+        return v
+
+    @field_validator("notes")
+    @classmethod
+    def sanitize_notes(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        # Strip HTML tags to prevent stored XSS
+        import re
+        v = re.sub(r"<[^>]+>", "", v)
+        return v[:500]  # Cap length
+
 
 class Message(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -410,8 +468,7 @@ class GarminSyncResult(BaseModel):
     message: str
 
 
-# Temporary storage for PKCE pairs (in production, use Redis or DB)
-pkce_store: Dict[str, str] = {}
+# OAuth state stores backed by MongoDB for cross-process reliability
 
 
 # ========== GARMIN OAUTH HELPERS ==========
@@ -535,11 +592,12 @@ def convert_garmin_to_workout(garmin_activity: dict, user_id: str = "default") -
             else:
                 date_obj = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
             date_str = date_obj.strftime("%Y-%m-%d")
-        except:
+        except (ValueError, TypeError, AttributeError):
             date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     else:
         date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    
+
+    # Build workout object
     workout = {
         "id": f"garmin_{garmin_activity.get('activityId', uuid.uuid4())}",
         "type": workout_type,
@@ -966,7 +1024,7 @@ def convert_strava_to_workout(strava_activity: dict, streams_data: dict = None, 
         try:
             date_obj = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
             date_str = date_obj.strftime("%Y-%m-%d")
-        except:
+        except (ValueError, TypeError, AttributeError):
             date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     else:
         date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -1835,19 +1893,18 @@ async def root():
 
 
 @api_router.get("/workouts", response_model=List[dict])
-async def get_workouts():
-    """Get all workouts, sorted by date descending"""
-    # Try to get from DB first, fall back to mock data
-    workouts = await db.workouts.find({}, {"_id": 0}).sort("date", -1).to_list(200)
+async def get_workouts(user_id: str = "default"):
+    """Get all workouts for a user, sorted by date descending"""
+    workouts = await db.workouts.find({"user_id": user_id}, {"_id": 0}).sort("date", -1).to_list(200)
     if not workouts:
         workouts = get_mock_workouts()
     return workouts
 
 
 @api_router.get("/workouts/{workout_id}")
-async def get_workout(workout_id: str):
+async def get_workout(workout_id: str, user_id: str = "default"):
     """Get a specific workout by ID"""
-    workout = await db.workouts.find_one({"id": workout_id}, {"_id": 0})
+    workout = await db.workouts.find_one({"id": workout_id, "user_id": user_id}, {"_id": 0})
     if not workout:
         # Check mock data
         mock = get_mock_workouts()
@@ -1858,10 +1915,11 @@ async def get_workout(workout_id: str):
 
 
 @api_router.post("/workouts", response_model=Workout)
-async def create_workout(workout: WorkoutCreate):
+async def create_workout(workout: WorkoutCreate, user_id: str = "default"):
     """Create a new workout"""
     workout_obj = Workout(**workout.model_dump())
     doc = workout_obj.model_dump()
+    doc["user_id"] = user_id
     await db.workouts.insert_one(doc)
     return workout_obj
 
@@ -3711,7 +3769,8 @@ async def get_garmin_status(user_id: str = "default"):
     )
     
     workout_count = await db.workouts.count_documents({
-        "data_source": "garmin"
+        "data_source": "garmin",
+        "user_id": user_id
     })
     
     return GarminConnectionStatus(
@@ -3732,10 +3791,19 @@ async def garmin_authorize():
     
     state = secrets.token_urlsafe(32)
     code_verifier, code_challenge = generate_pkce_pair()
-    
-    # Store PKCE pair temporarily
-    pkce_store[state] = code_verifier
-    
+
+    # Store PKCE pair in DB (cross-process safe), expires in 10 minutes
+    await db.oauth_states.update_one(
+        {"state": state},
+        {"$set": {
+            "state": state,
+            "code_verifier": code_verifier,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "expires_at": (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat()
+        }},
+        upsert=True
+    )
+
     auth_url = get_garmin_auth_url(code_challenge, state)
     return {"authorization_url": auth_url, "state": state}
 
@@ -3743,10 +3811,11 @@ async def garmin_authorize():
 @api_router.get("/garmin/callback")
 async def garmin_callback(code: str, state: str):
     """Handle Garmin OAuth callback (DORMANT)"""
-    if state not in pkce_store:
+    pkce_entry = await db.oauth_states.find_one_and_delete({"state": state})
+    if not pkce_entry:
         raise HTTPException(status_code=400, detail="Invalid state parameter")
-    
-    code_verifier = pkce_store.pop(state)
+
+    code_verifier = pkce_entry["code_verifier"]
     
     try:
         # Exchange code for tokens
@@ -3858,8 +3927,7 @@ class StravaSyncResult(BaseModel):
     message: str
 
 
-# Temporary storage for Strava OAuth state (in production, use Redis or DB)
-strava_oauth_store: Dict[str, str] = {}
+# strava_oauth_store moved to MongoDB (see /strava/authorize endpoint)
 
 
 @api_router.get("/strava/status")
@@ -3880,7 +3948,8 @@ async def get_strava_status(user_id: str = "default"):
     
     # Count imported Strava workouts
     workout_count = await db.workouts.count_documents({
-        "data_source": "strava"
+        "data_source": "strava",
+        "user_id": user_id
     })
     
     return StravaConnectionStatus(
@@ -3901,9 +3970,19 @@ async def strava_authorize(user_id: str = "default"):
     
     # Generate state for security
     state = secrets.token_urlsafe(32)
-    
-    # Store state with user_id for callback
-    strava_oauth_store[state] = user_id
+
+    # Store state with user_id in DB (cross-process safe), expires in 10 minutes
+    await db.oauth_states.update_one(
+        {"state": state},
+        {"$set": {
+            "state": state,
+            "user_id": user_id,
+            "provider": "strava",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "expires_at": (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat()
+        }},
+        upsert=True
+    )
     
     # Build Strava authorization URL
     redirect_uri = STRAVA_REDIRECT_URI or f"{FRONTEND_URL}/settings"
@@ -3924,11 +4003,12 @@ async def strava_authorize(user_id: str = "default"):
 @api_router.get("/strava/callback")
 async def strava_callback(code: str, state: str, scope: str = None):
     """Handle Strava OAuth callback"""
-    if state not in strava_oauth_store:
+    state_entry = await db.oauth_states.find_one_and_delete({"state": state, "provider": "strava"})
+    if not state_entry:
         logger.warning(f"Invalid state parameter received: {state}")
         return RedirectResponse(url=f"{FRONTEND_URL}/settings?strava=error&reason=invalid_state")
-    
-    user_id = strava_oauth_store.pop(state)
+
+    user_id = state_entry["user_id"]
     
     try:
         # Exchange code for tokens
@@ -4840,19 +4920,19 @@ async def get_subscription_status(user_id: str = "default"):
                     is_premium = True
                     billing_period = subscription.get("billing_period", "monthly")
                     subscription_id = subscription.get("subscription_id")
-            except:
+            except (ValueError, TypeError):
                 pass
-    
+
     # Get message count for current month
     now = datetime.now(timezone.utc)
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    
+
     message_count = await db.chat_messages.count_documents({
         "user_id": user_id,
         "role": "user",
         "timestamp": {"$gte": month_start.isoformat()}
     })
-    
+
     messages_limit = tier_config.get("messages_limit", 10)
     is_unlimited = tier_config.get("unlimited", False)
     
@@ -5106,7 +5186,7 @@ async def stripe_webhook(request: Request):
     
     except Exception as e:
         logger.error(f"Webhook error: {e}")
-        return {"received": False, "error": str(e)}
+        raise HTTPException(status_code=400, detail=f"Webhook processing failed: {str(e)}")
 
 
 # ========== CHAT COACH (PREMIUM ONLY) ==========
@@ -5142,7 +5222,7 @@ def build_chat_context(workouts: list, user_goal: dict = None) -> dict:
             w_date = datetime.fromisoformat(w.get("date", "").replace("Z", "+00:00")).date()
             if w_date >= week_start:
                 week_workouts.append(w)
-        except:
+        except (ValueError, TypeError, AttributeError):
             pass
     
     # Stats de la semaine
@@ -5150,7 +5230,7 @@ def build_chat_context(workouts: list, user_goal: dict = None) -> dict:
     context["nb_seances"] = len(week_workouts)
     
     # Allure moyenne
-    total_time = sum(w.get("duration_min", 0) for w in week_workouts)
+    total_time = sum(w.get("duration_minutes", 0) for w in week_workouts)
     total_km = context["km_semaine"]
     if total_km > 0 and total_time > 0:
         pace_min = total_time / total_km
@@ -5191,7 +5271,7 @@ def build_chat_context(workouts: list, user_goal: dict = None) -> dict:
         {
             "name": w.get("name", "Run"),
             "distance_km": w.get("distance_km", 0),
-            "duration_min": w.get("duration_min", 0),
+            "duration_min": w.get("duration_minutes", 0),
             "date": w.get("date", ""),
         }
         for w in workouts[:5]
@@ -5229,12 +5309,12 @@ async def send_chat_message(request: ChatRequest):
                 if exp_date >= datetime.now(timezone.utc):
                     tier = subscription.get("tier", "starter")
                     tier_config = SUBSCRIPTION_TIERS.get(tier, SUBSCRIPTION_TIERS["starter"])
-            except:
+            except (ValueError, TypeError):
                 pass
-    
+
     messages_limit = tier_config.get("messages_limit", 10)
     is_unlimited = tier_config.get("unlimited", False)
-    
+
     # Get message count for current month
     now = datetime.now(timezone.utc)
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
@@ -5429,6 +5509,25 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+async def create_db_indexes():
+    """Create MongoDB indexes for common query patterns"""
+    # Workouts: filter + sort by user and date
+    await db.workouts.create_index([("user_id", 1), ("date", -1)])
+    await db.workouts.create_index([("id", 1)], unique=True, sparse=True)
+    # Conversations / chat messages
+    await db.conversations.create_index([("user_id", 1), ("timestamp", 1)])
+    await db.chat_messages.create_index([("user_id", 1), ("timestamp", 1)])
+    # OAuth state store: auto-expire after 10 minutes
+    await db.oauth_states.create_index("state", unique=True)
+    await db.oauth_states.create_index("expires_at", expireAfterSeconds=0)
+    # Subscriptions / tokens
+    await db.subscriptions.create_index("user_id", unique=True, sparse=True)
+    await db.strava_tokens.create_index("user_id", unique=True, sparse=True)
+    await db.garmin_tokens.create_index("user_id", unique=True, sparse=True)
+    logger.info("MongoDB indexes created")
 
 
 @app.on_event("shutdown")
