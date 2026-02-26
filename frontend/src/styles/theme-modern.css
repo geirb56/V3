@@ -1,10 +1,61 @@
-/* Modern & Warm Theme for CardioCoach V2 */
+/* RunCoachAI Modern Theme - Inspired Design */
+
+:root {
+  /* Base Colors - Dark Navy */
+  --bg-primary: #0a0e1a;
+  --bg-secondary: #0f1424;
+  --bg-card: #141a2e;
+  --bg-card-hover: #1a2038;
+  
+  /* Primary Accent - Violet/Purple */
+  --accent-violet: #8b5cf6;
+  --accent-violet-light: #a78bfa;
+  --accent-violet-dark: #7c3aed;
+  
+  /* Secondary - Cyan/Teal */
+  --accent-cyan: #22d3ee;
+  --accent-cyan-light: #67e8f9;
+  
+  /* Pink/Magenta for highlights */
+  --accent-pink: #ec4899;
+  --accent-pink-light: #f472b6;
+  
+  /* Status Colors */
+  --status-success: #22c55e;
+  --status-warning: #f97316;
+  --status-danger: #ef4444;
+  
+  /* Workout Type Colors */
+  --type-fractionne: #8b5cf6;
+  --type-endurance: #3b82f6;
+  --type-seuil: #f97316;
+  --type-recuperation: #14b8a6;
+  
+  /* Text */
+  --text-primary: #ffffff;
+  --text-secondary: #94a3b8;
+  --text-tertiary: #64748b;
+  
+  /* Borders */
+  --border-color: #1e293b;
+  --border-color-light: #334155;
+  
+  /* Chart colors */
+  --chart-line: #8b5cf6;
+  --chart-gradient-start: rgba(139, 92, 246, 0.3);
+  --chart-gradient-end: rgba(139, 92, 246, 0);
+}
+
+/* ========== GLOBAL OVERRIDES ========== */
+body {
+  background-color: var(--bg-primary) !important;
+}
 
 /* ========== ANIMATIONS ========== */
 @keyframes fadeInUp {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(12px);
   }
   to {
     opacity: 1;
@@ -14,310 +65,454 @@
 
 @keyframes pulse-glow {
   0%, 100% {
-    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+    box-shadow: 0 0 0 0 rgba(139, 92, 246, 0);
   }
   50% {
-    box-shadow: 0 0 20px 4px rgba(59, 130, 246, 0.15);
+    box-shadow: 0 0 20px 4px rgba(139, 92, 246, 0.2);
   }
 }
 
 @keyframes shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
 }
 
 .animate-in {
   animation: fadeInUp 0.4s ease-out forwards;
 }
 
-.animate-pulse-glow {
-  animation: pulse-glow 3s ease-in-out infinite;
-}
-
 /* ========== CARDS ========== */
-.metric-card {
-  position: relative;
-  overflow: hidden;
+.card-modern {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.metric-card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    135deg,
-    rgba(59, 130, 246, 0.03) 0%,
-    transparent 50%,
-    rgba(34, 197, 94, 0.02) 100%
-  );
-  opacity: 0;
-  transition: opacity 0.3s ease;
+.card-modern:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-color-light);
 }
 
-.metric-card:hover::before {
-  opacity: 1;
+/* Card with violet accent border */
+.card-accent-violet {
+  background: var(--bg-card);
+  border: 1px solid var(--accent-violet);
+  border-radius: 16px;
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.1);
 }
 
-.metric-card:hover {
-  border-color: hsl(217 91% 60% / 0.3);
-  transform: translateY(-2px);
-  box-shadow: 
-    0 8px 24px -4px rgba(0, 0, 0, 0.3),
-    0 0 0 1px rgba(59, 130, 246, 0.1);
-}
-
-/* Glass effect for special cards */
-.glass-card {
-  background: rgba(255, 255, 255, 0.02);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-/* ========== COACH INSIGHT CARD ========== */
-.coach-insight-card {
-  background: linear-gradient(
-    135deg,
-    hsl(217 91% 60% / 0.08) 0%,
-    hsl(217 91% 60% / 0.02) 100%
-  );
-  border-color: hsl(217 91% 60% / 0.2);
+/* ========== FORME ACTUELLE (Form Score) ========== */
+.form-score-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
   position: relative;
   overflow: hidden;
 }
 
-.coach-insight-card::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, hsl(217 91% 60%), transparent);
+.form-score-value {
+  font-size: 3.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1;
 }
 
-/* ========== RECOVERY GAUGE ========== */
-.recovery-gauge-container {
-  position: relative;
+.form-score-unit {
+  font-size: 1.25rem;
+  color: var(--text-secondary);
+  margin-left: 4px;
 }
 
-.recovery-gauge-container svg circle {
-  transition: stroke-dashoffset 1s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.recovery-gauge-container .gauge-ready {
-  filter: drop-shadow(0 0 8px rgba(34, 197, 94, 0.4));
-}
-
-.recovery-gauge-container .gauge-moderate {
-  filter: drop-shadow(0 0 8px rgba(251, 191, 36, 0.4));
-}
-
-.recovery-gauge-container .gauge-low {
-  filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.4));
-}
-
-/* ========== WORKOUT TYPE BADGES ========== */
-.workout-type-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 8px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 9px;
+.form-score-change {
+  color: var(--accent-pink);
+  font-size: 0.875rem;
   font-weight: 500;
+}
+
+/* Circular gauge */
+.circular-gauge {
+  position: relative;
+  width: 64px;
+  height: 64px;
+}
+
+.circular-gauge svg {
+  transform: rotate(-90deg);
+}
+
+.circular-gauge .gauge-bg {
+  stroke: var(--border-color);
+}
+
+.circular-gauge .gauge-progress {
+  stroke: var(--accent-violet);
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 6px rgba(139, 92, 246, 0.5));
+}
+
+.circular-gauge .gauge-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* ========== METRIC CARDS ========== */
+.metric-card-modern {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 1rem;
+}
+
+.metric-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  background: hsl(var(--muted));
-  border: 1px solid hsl(var(--border));
-  border-radius: 2px;
-  color: hsl(var(--muted-foreground));
+  margin-bottom: 8px;
 }
 
-.workout-type-badge.run {
-  background: hsl(217 91% 60% / 0.1);
-  border-color: hsl(217 91% 60% / 0.3);
-  color: hsl(217 91% 70%);
+.metric-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text-primary);
 }
 
-.workout-type-badge.cycle {
-  background: hsl(160 84% 39% / 0.1);
-  border-color: hsl(160 84% 39% / 0.3);
-  color: hsl(160 84% 50%);
+.metric-unit {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  margin-left: 2px;
 }
 
-/* ========== SIGNAL INDICATORS ========== */
-.signal-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
+.metric-progress-bar {
+  height: 6px;
+  background: var(--border-color);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 12px;
+}
+
+.metric-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-violet), var(--accent-cyan));
+  border-radius: 3px;
+  transition: width 0.5s ease;
+}
+
+.metric-objective {
+  color: var(--text-tertiary);
+  font-size: 0.75rem;
+  margin-top: 8px;
+}
+
+/* ========== TODAY'S WORKOUT CARD ========== */
+.today-workout-card {
+  background: var(--bg-card);
+  border: 2px solid var(--accent-violet);
+  border-radius: 16px;
+  padding: 1.25rem;
   position: relative;
+  box-shadow: 0 0 30px rgba(139, 92, 246, 0.15);
 }
 
-.signal-dot::after {
-  content: '';
-  position: absolute;
-  inset: -2px;
-  border-radius: 50%;
-  animation: pulse-glow 2s ease-in-out infinite;
-}
-
-.signal-dot.high {
-  background: hsl(0 84% 60%);
-}
-
-.signal-dot.high::after {
-  box-shadow: 0 0 12px 2px rgba(239, 68, 68, 0.4);
-}
-
-.signal-dot.balanced {
-  background: hsl(160 84% 39%);
-}
-
-.signal-dot.balanced::after {
-  box-shadow: 0 0 12px 2px rgba(34, 197, 94, 0.4);
-}
-
-.signal-dot.low {
-  background: hsl(38 92% 50%);
-}
-
-.signal-dot.low::after {
-  box-shadow: 0 0 12px 2px rgba(251, 191, 36, 0.4);
-}
-
-/* ========== RAG SUMMARY CARD ========== */
-.rag-summary-card {
-  background: linear-gradient(
-    135deg,
-    hsl(262 83% 58% / 0.05) 0%,
-    transparent 100%
-  );
-  border-color: hsl(262 83% 58% / 0.15);
-}
-
-.rag-badge-fort {
-  background: hsl(160 84% 39% / 0.15);
-  border: 1px solid hsl(160 84% 39% / 0.3);
-  color: hsl(160 84% 50%);
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 10px;
-  font-family: 'JetBrains Mono', monospace;
-}
-
-.rag-badge-ameliorer {
-  background: hsl(38 92% 50% / 0.15);
-  border: 1px solid hsl(38 92% 50% / 0.3);
-  color: hsl(38 92% 60%);
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 10px;
-  font-family: 'JetBrains Mono', monospace;
-}
-
-/* ========== PREMIUM BADGE ========== */
-.premium-badge {
-  background: linear-gradient(135deg, hsl(38 92% 50%), hsl(30 100% 55%));
-  color: hsl(0 0% 0%);
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 9px;
+.today-label {
+  color: var(--accent-violet);
+  font-size: 0.7rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.1em;
+  margin-bottom: 8px;
 }
 
-/* ========== NAVIGATION ========== */
-.nav-item {
-  position: relative;
+.today-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.today-meta {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.today-details {
+  display: flex;
+  gap: 1.5rem;
+  margin-top: 12px;
+  color: var(--text-tertiary);
+  font-size: 0.875rem;
+}
+
+.play-button {
+  position: absolute;
+  right: 1.25rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 48px;
+  height: 48px;
+  background: var(--accent-violet);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 20px rgba(139, 92, 246, 0.4);
+}
+
+.play-button:hover {
+  transform: translateY(-50%) scale(1.1);
+  box-shadow: 0 6px 30px rgba(139, 92, 246, 0.5);
+}
+
+.play-button svg {
+  color: white;
+  margin-left: 2px;
+}
+
+/* ========== WORKOUT LIST ========== */
+.workout-list-item {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
   transition: all 0.2s ease;
 }
 
-.nav-item.active::after {
-  content: '';
-  position: absolute;
-  bottom: -2px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 4px;
-  height: 4px;
+.workout-list-item:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-color-light);
+}
+
+.workout-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.workout-icon.fractionne {
+  background: rgba(139, 92, 246, 0.15);
+  color: var(--type-fractionne);
+}
+
+.workout-icon.endurance {
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--type-endurance);
+}
+
+.workout-icon.seuil {
+  background: rgba(249, 115, 22, 0.15);
+  color: var(--type-seuil);
+}
+
+.workout-icon.recuperation {
+  background: rgba(20, 184, 166, 0.15);
+  color: var(--type-recuperation);
+}
+
+.workout-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.workout-type-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.workout-stats {
+  display: flex;
+  gap: 8px;
+  color: var(--text-tertiary);
+  font-size: 0.8125rem;
+}
+
+.workout-stats span {
+  display: flex;
+  align-items: center;
+}
+
+.workout-stats .dot {
+  width: 3px;
+  height: 3px;
+  background: var(--text-tertiary);
   border-radius: 50%;
-  background: hsl(217 91% 60%);
-  box-shadow: 0 0 8px 2px hsl(217 91% 60% / 0.4);
 }
 
-/* ========== BUTTONS ========== */
-.btn-primary-glow {
-  position: relative;
-  background: hsl(217 91% 60%);
-  transition: all 0.3s ease;
+.workout-date {
+  color: var(--text-tertiary);
+  font-size: 0.8125rem;
+  flex-shrink: 0;
 }
 
-.btn-primary-glow:hover {
-  box-shadow: 0 4px 20px -2px hsl(217 91% 60% / 0.5);
-  transform: translateY(-1px);
+.workout-arrow {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
 }
 
-/* ========== SKELETON LOADING ========== */
-.skeleton {
-  background: linear-gradient(
-    90deg,
-    hsl(var(--muted)) 0%,
-    hsl(var(--muted) / 0.5) 50%,
-    hsl(var(--muted)) 100%
-  );
-  background-size: 200% 100%;
-  animation: shimmer 1.5s ease-in-out infinite;
-  border-radius: 4px;
+/* ========== SECTION HEADERS ========== */
+.section-header {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 12px;
 }
 
-/* ========== SCROLLBAR CUSTOM ========== */
-.custom-scrollbar::-webkit-scrollbar {
-  width: 4px;
+/* ========== BOTTOM NAV ========== */
+.bottom-nav-modern {
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-color);
 }
 
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
+.nav-item-modern {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px;
+  color: var(--text-tertiary);
+  transition: all 0.2s ease;
 }
 
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: hsl(var(--border));
-  border-radius: 2px;
+.nav-item-modern.active {
+  color: var(--accent-cyan);
 }
 
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--muted-foreground));
+.nav-item-modern .nav-icon {
+  width: 24px;
+  height: 24px;
 }
 
-/* ========== SAFE AREA (iPhone notch) ========== */
+.nav-item-modern .nav-label {
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ========== HEADER ========== */
+.header-modern {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  background: var(--bg-primary);
+}
+
+.header-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-logo-icon {
+  width: 32px;
+  height: 32px;
+  background: var(--accent-violet);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.header-logo-text {
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.header-logo-text span {
+  color: var(--accent-violet);
+}
+
+.sync-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-tertiary);
+  font-size: 0.75rem;
+}
+
+.sync-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--status-success);
+  border-radius: 50%;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-avatar {
+  width: 32px;
+  height: 32px;
+  background: var(--accent-pink);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: white;
+}
+
+/* ========== CHARTS ========== */
+.chart-line-gradient {
+  stroke: var(--accent-violet);
+  stroke-width: 2;
+  fill: none;
+  filter: drop-shadow(0 0 4px rgba(139, 92, 246, 0.3));
+}
+
+/* ========== UTILITIES ========== */
+.text-gradient-violet {
+  background: linear-gradient(135deg, var(--accent-violet), var(--accent-pink));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.glow-violet {
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
+}
+
+.glow-cyan {
+  box-shadow: 0 0 20px rgba(34, 211, 238, 0.3);
+}
+
+/* ========== SAFE AREA ========== */
 .safe-area-pb {
   padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
 }
 
-/* ========== RESPONSIVE IMPROVEMENTS ========== */
+/* ========== RESPONSIVE ========== */
 @media (max-width: 640px) {
-  .metric-card:hover {
-    transform: none;
+  .form-score-value {
+    font-size: 2.5rem;
   }
   
-  .workout-type-badge {
-    font-size: 8px;
-    padding: 1px 6px;
+  .metric-value {
+    font-size: 1.75rem;
   }
-}
-
-/* ========== FOCUS STATES ========== */
-*:focus-visible {
-  outline: 2px solid hsl(217 91% 60%);
-  outline-offset: 2px;
-}
-
-/* ========== SELECTION ========== */
-::selection {
-  background: hsl(217 91% 60% / 0.3);
-  color: hsl(var(--foreground));
 }
