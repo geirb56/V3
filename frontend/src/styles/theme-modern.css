@@ -293,6 +293,11 @@
   background: hsl(var(--muted-foreground));
 }
 
+/* ========== SAFE AREA (iPhone notch) ========== */
+.safe-area-pb {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+}
+
 /* ========== RESPONSIVE IMPROVEMENTS ========== */
 @media (max-width: 640px) {
   .metric-card:hover {
