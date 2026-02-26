@@ -350,39 +350,48 @@ export default function Dashboard() {
           <Link 
             to="/progress" 
             data-testid="view-all-workouts"
-            className="font-mono text-[10px] uppercase text-primary hover:text-primary/80 flex items-center gap-1"
+            className="font-mono text-[10px] uppercase text-primary hover:text-primary/80 flex items-center gap-1 transition-colors"
           >
             {t("dashboard.viewAll")} <ChevronRight className="w-3 h-3" />
           </Link>
         </div>
 
         <div className="space-y-2">
-          {workouts.slice(0, 4).map((workout) => {
+          {workouts.slice(0, 4).map((workout, index) => {
             const Icon = getWorkoutIcon(workout.type);
             const dateStr = new Date(workout.date).toLocaleDateString(
               lang === "fr" ? "fr-FR" : "en-US",
               { month: "short", day: "numeric" }
             );
+            const typeLabel = t(`workoutTypes.${workout.type}`) || workout.type;
             
             return (
               <Link
                 key={workout.id}
                 to={`/workout/${workout.id}`}
                 data-testid={`workout-card-${workout.id}`}
-                className="block"
+                className="block animate-in"
+                style={{ animationDelay: `${250 + index * 50}ms` }}
               >
-                <Card className="bg-card border-border hover:border-primary/30 transition-colors">
+                <Card className="metric-card bg-card border-border hover:border-primary/30">
                   <CardContent className="p-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 flex items-center justify-center bg-muted border border-border flex-shrink-0">
+                      <div className="w-9 h-9 flex items-center justify-center bg-muted/50 border border-border rounded-md flex-shrink-0">
                         <Icon className="w-4 h-4 text-muted-foreground" />
                       </div>
                       <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className={`workout-type-badge ${workout.type}`}>
+                            {typeLabel}
+                          </span>
+                          <span className="font-mono text-[9px] text-muted-foreground">
+                            {dateStr}
+                          </span>
+                        </div>
                         <p className="font-mono text-xs font-medium truncate">{workout.name}</p>
-                        <p className="font-mono text-[10px] text-muted-foreground">{dateStr}</p>
                       </div>
-                      <div className="text-right">
-                        <p className="font-mono text-xs font-medium">{workout.distance_km?.toFixed(1)} km</p>
+                      <div className="text-right flex-shrink-0">
+                        <p className="font-mono text-sm font-semibold">{workout.distance_km?.toFixed(1)} km</p>
                         <p className="font-mono text-[10px] text-muted-foreground">
                           {formatDuration(workout.duration_minutes)}
                         </p>
