@@ -196,13 +196,20 @@ export default function Dashboard() {
     <div className="p-4 pb-24" data-testid="dashboard">
       {/* 1) COACH INSIGHT - TOP PRIORITY */}
       {insight?.coach_insight && (
-        <Card className="bg-primary/5 border-primary/20 mb-4">
+        <Card className="coach-insight-card bg-primary/5 border-primary/20 mb-4 animate-in">
           <CardContent className="p-4">
             <div className="flex items-start gap-3">
-              <Lightbulb className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-              <p className="font-mono text-sm text-primary leading-relaxed" data-testid="coach-insight">
-                {insight.coach_insight}
-              </p>
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <Lightbulb className="w-4 h-4 text-primary" />
+              </div>
+              <div className="flex-1">
+                <p className="font-mono text-[9px] uppercase tracking-widest text-primary/60 mb-1">
+                  {lang === "fr" ? "Conseil du coach" : "Coach Insight"}
+                </p>
+                <p className="font-mono text-sm text-primary leading-relaxed" data-testid="coach-insight">
+                  {insight.coach_insight}
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>
