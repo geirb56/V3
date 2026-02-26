@@ -1,323 +1,80 @@
-/* Modern & Warm Theme for CardioCoach V2 */
+/* Modern & Warm Theme for CardioCoach */
 
-/* ========== ANIMATIONS ========== */
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+:root {
+  /* Base Colors */
+  --bg-primary: hsl(220, 25%, 12%);
+  --bg-secondary: hsl(220, 20%, 18%);
+  --bg-card: hsl(220, 18%, 22%);
+  
+  /* Primary Accent - Violet/Magenta */
+  --accent-primary: hsl(280, 85%, 50%);
+  --accent-primary-light: hsl(280, 85%, 60%);
+  --accent-primary-dark: hsl(280, 85%, 40%);
+  
+  /* Secondary - Blue */
+  --accent-secondary: hsl(200, 100%, 60%);
+  --accent-secondary-light: hsl(200, 100%, 70%);
+  
+  /* Status Colors */
+  --status-success: hsl(140, 70%, 50%);
+  --status-warning: hsl(30, 100%, 55%);
+  --status-danger: hsl(0, 85%, 55%);
+  
+  /* Text */
+  --text-primary: hsl(0, 0%, 100%);
+  --text-secondary: hsl(220, 15%, 70%);
+  --text-tertiary: hsl(220, 15%, 50%);
+  
+  /* Borders & Dividers */
+  --border-color: hsl(220, 20%, 30%);
+  --border-color-light: hsl(220, 20%, 25%);
+  
+  /* Gradients */
+  --gradient-primary: linear-gradient(135deg, hsl(280, 85%, 50%), hsl(320, 80%, 50%));
+  --gradient-blue: linear-gradient(135deg, hsl(200, 100%, 50%), hsl(220, 100%, 60%));
+  --gradient-warm: linear-gradient(135deg, hsl(30, 100%, 55%), hsl(0, 85%, 55%));
 }
 
-@keyframes pulse-glow {
-  0%, 100% {
-    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
-  }
-  50% {
-    box-shadow: 0 0 20px 4px rgba(59, 130, 246, 0.15);
-  }
-}
-
-@keyframes shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
-}
-
-.animate-in {
-  animation: fadeInUp 0.4s ease-out forwards;
-}
-
-.animate-pulse-glow {
-  animation: pulse-glow 3s ease-in-out infinite;
-}
-
-/* ========== CARDS ========== */
-.metric-card {
-  position: relative;
-  overflow: hidden;
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  backdrop-filter: blur(8px);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.metric-card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    135deg,
-    rgba(59, 130, 246, 0.03) 0%,
-    transparent 50%,
-    rgba(34, 197, 94, 0.02) 100%
-  );
-  opacity: 0;
-  transition: opacity 0.3s ease;
+.card:hover {
+  border-color: var(--accent-primary);
+  box-shadow: 0 8px 24px rgba(185, 70, 239, 0.15);
 }
 
-.metric-card:hover::before {
-  opacity: 1;
+.recovery-gauge circle {
+  stroke: var(--accent-primary);
+  filter: drop-shadow(0 0 8px rgba(185, 70, 239, 0.3));
 }
 
-.metric-card:hover {
-  border-color: hsl(217 91% 60% / 0.3);
-  transform: translateY(-2px);
-  box-shadow: 
-    0 8px 24px -4px rgba(0, 0, 0, 0.3),
-    0 0 0 1px rgba(59, 130, 246, 0.1);
-}
-
-/* Glass effect for special cards */
-.glass-card {
-  background: rgba(255, 255, 255, 0.02);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-/* ========== COACH INSIGHT CARD ========== */
-.coach-insight-card {
-  background: linear-gradient(
-    135deg,
-    hsl(217 91% 60% / 0.08) 0%,
-    hsl(217 91% 60% / 0.02) 100%
-  );
-  border-color: hsl(217 91% 60% / 0.2);
-  position: relative;
-  overflow: hidden;
-}
-
-.coach-insight-card::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, hsl(217 91% 60%), transparent);
-}
-
-/* ========== RECOVERY GAUGE ========== */
-.recovery-gauge-container {
-  position: relative;
-}
-
-.recovery-gauge-container svg circle {
-  transition: stroke-dashoffset 1s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.recovery-gauge-container .gauge-ready {
-  filter: drop-shadow(0 0 8px rgba(34, 197, 94, 0.4));
-}
-
-.recovery-gauge-container .gauge-moderate {
-  filter: drop-shadow(0 0 8px rgba(251, 191, 36, 0.4));
-}
-
-.recovery-gauge-container .gauge-low {
-  filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.4));
-}
-
-/* ========== WORKOUT TYPE BADGES ========== */
-.workout-type-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 8px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 9px;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  background: hsl(var(--muted));
-  border: 1px solid hsl(var(--border));
-  border-radius: 2px;
-  color: hsl(var(--muted-foreground));
-}
-
-.workout-type-badge.run {
-  background: hsl(217 91% 60% / 0.1);
-  border-color: hsl(217 91% 60% / 0.3);
-  color: hsl(217 91% 70%);
-}
-
-.workout-type-badge.cycle {
-  background: hsl(160 84% 39% / 0.1);
-  border-color: hsl(160 84% 39% / 0.3);
-  color: hsl(160 84% 50%);
-}
-
-/* ========== SIGNAL INDICATORS ========== */
-.signal-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  position: relative;
-}
-
-.signal-dot::after {
-  content: '';
-  position: absolute;
-  inset: -2px;
-  border-radius: 50%;
-  animation: pulse-glow 2s ease-in-out infinite;
-}
-
-.signal-dot.high {
-  background: hsl(0 84% 60%);
-}
-
-.signal-dot.high::after {
-  box-shadow: 0 0 12px 2px rgba(239, 68, 68, 0.4);
-}
-
-.signal-dot.balanced {
-  background: hsl(160 84% 39%);
-}
-
-.signal-dot.balanced::after {
-  box-shadow: 0 0 12px 2px rgba(34, 197, 94, 0.4);
-}
-
-.signal-dot.low {
-  background: hsl(38 92% 50%);
-}
-
-.signal-dot.low::after {
-  box-shadow: 0 0 12px 2px rgba(251, 191, 36, 0.4);
-}
-
-/* ========== RAG SUMMARY CARD ========== */
-.rag-summary-card {
-  background: linear-gradient(
-    135deg,
-    hsl(262 83% 58% / 0.05) 0%,
-    transparent 100%
-  );
-  border-color: hsl(262 83% 58% / 0.15);
-}
-
-.rag-badge-fort {
-  background: hsl(160 84% 39% / 0.15);
-  border: 1px solid hsl(160 84% 39% / 0.3);
-  color: hsl(160 84% 50%);
-  padding: 2px 8px;
+.chart-bar {
+  background: var(--gradient-primary);
   border-radius: 4px;
-  font-size: 10px;
-  font-family: 'JetBrains Mono', monospace;
 }
 
-.rag-badge-ameliorer {
-  background: hsl(38 92% 50% / 0.15);
-  border: 1px solid hsl(38 92% 50% / 0.3);
-  color: hsl(38 92% 60%);
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 10px;
-  font-family: 'JetBrains Mono', monospace;
+.icon-fractionne { color: var(--accent-primary); }
+.icon-endurance { color: var(--accent-secondary); }
+.icon-seuil { color: var(--status-warning); }
+.icon-recuperation { color: var(--status-success); }
+
+.metric-line {
+  stroke: url(#gradient-primary);
+  filter: drop-shadow(0 0 2px rgba(185, 70, 239, 0.2));
 }
 
-/* ========== PREMIUM BADGE ========== */
-.premium-badge {
-  background: linear-gradient(135deg, hsl(38 92% 50%), hsl(30 100% 55%));
-  color: hsl(0 0% 0%);
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 9px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-/* ========== NAVIGATION ========== */
-.nav-item {
-  position: relative;
-  transition: all 0.2s ease;
-}
-
-.nav-item.active::after {
-  content: '';
-  position: absolute;
-  bottom: -2px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 4px;
-  height: 4px;
+.btn-cta {
+  background: var(--gradient-primary);
   border-radius: 50%;
-  background: hsl(217 91% 60%);
-  box-shadow: 0 0 8px 2px hsl(217 91% 60% / 0.4);
-}
-
-/* ========== BUTTONS ========== */
-.btn-primary-glow {
-  position: relative;
-  background: hsl(217 91% 60%);
   transition: all 0.3s ease;
 }
 
-.btn-primary-glow:hover {
-  box-shadow: 0 4px 20px -2px hsl(217 91% 60% / 0.5);
-  transform: translateY(-1px);
-}
-
-/* ========== SKELETON LOADING ========== */
-.skeleton {
-  background: linear-gradient(
-    90deg,
-    hsl(var(--muted)) 0%,
-    hsl(var(--muted) / 0.5) 50%,
-    hsl(var(--muted)) 100%
-  );
-  background-size: 200% 100%;
-  animation: shimmer 1.5s ease-in-out infinite;
-  border-radius: 4px;
-}
-
-/* ========== SCROLLBAR CUSTOM ========== */
-.custom-scrollbar::-webkit-scrollbar {
-  width: 4px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: hsl(var(--border));
-  border-radius: 2px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--muted-foreground));
-}
-
-/* ========== SAFE AREA (iPhone notch) ========== */
-.safe-area-pb {
-  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
-}
-
-/* ========== RESPONSIVE IMPROVEMENTS ========== */
-@media (max-width: 640px) {
-  .metric-card:hover {
-    transform: none;
-  }
-  
-  .workout-type-badge {
-    font-size: 8px;
-    padding: 1px 6px;
-  }
-}
-
-/* ========== FOCUS STATES ========== */
-*:focus-visible {
-  outline: 2px solid hsl(217 91% 60%);
-  outline-offset: 2px;
-}
-
-/* ========== SELECTION ========== */
-::selection {
-  background: hsl(217 91% 60% / 0.3);
-  color: hsl(var(--foreground));
+.btn-cta:hover {
+  transform: scale(1.1);
+  box-shadow: 0 12px 32px rgba(185, 70, 239, 0.4);
 }
